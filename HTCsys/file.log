@@ -1,0 +1,35 @@
+2024-01-08 19:42:09,129 -- [INFO] -- (logger.py:14): This is a info message!
+2024-01-08 19:42:09,129 -- [WARNING] -- (logger.py:15): This is a warning message!
+2024-01-08 19:42:09,129 -- [ERROR] -- (logger.py:16): This is a error message!
+2024-01-08 19:42:09,129 -- [CRITICAL] -- (logger.py:17): This is a critical message!
+2024-01-08 19:44:03,316 -- [ERROR] -- (Manager.py:8): Please offer your work json.
+2024-01-08 19:44:45,993 -- [ERROR] -- (Manager.py:8): Please offer your work json.
+2024-01-08 19:44:45,993 -- [INFO] -- (Manager.py:12): saoijf
+2024-01-08 19:44:48,989 -- [ERROR] -- (Manager.py:8): Please offer your work json.
+2024-01-08 19:44:48,989 -- [INFO] -- (Manager.py:12): saoijf
+2024-01-08 19:44:55,931 -- [ERROR] -- (Manager.py:8): Please offer your work json.
+2024-01-08 19:44:55,931 -- [ERROR] -- (Manager.py:12): saoijf
+2024-01-08 19:45:19,358 -- [WARNING] -- (logger.py:15): This is a warning message!
+2024-01-08 19:45:19,358 -- [ERROR] -- (logger.py:16): This is a error message!
+2024-01-08 19:45:19,358 -- [CRITICAL] -- (logger.py:17): This is a critical message!
+2024-01-08 19:45:25,638 -- [WARNING] -- (logger.py:15): This is a warning message!
+2024-01-08 19:45:25,638 -- [ERROR] -- (logger.py:16): This is a error message!
+2024-01-08 19:45:25,638 -- [CRITICAL] -- (logger.py:17): This is a critical message!
+2024-01-08 19:45:37,893 -- [WARNING] -- (logger.py:15): This is a warning message!
+2024-01-08 19:45:37,893 -- [ERROR] -- (logger.py:16): This is a error message!
+2024-01-08 19:45:37,893 -- [CRITICAL] -- (logger.py:17): This is a critical message!
+2024-01-08 19:46:52,217 -- [ERROR] -- (Manager.py:8): Please offer your work json.
+2024-01-08 19:46:52,217 -- [ERROR] -- (Manager.py:12): saoijf
+2024-01-08 19:47:30,106 -- [ERROR] -- (Manager.py:10): fuck
+2024-01-08 19:47:30,106 -- [ERROR] -- (Manager.py:8): Please offer your work json.
+2024-01-08 19:47:30,107 -- [ERROR] -- (Manager.py:13): saoijf
+2024-01-08 19:47:43,045 -- [ERROR] -- (logger.py:11): fuck
+2024-01-08 19:47:43,045 -- [INFO] -- (logger.py:14): This is a info message!
+2024-01-08 19:47:43,045 -- [WARNING] -- (logger.py:15): This is a warning message!
+2024-01-08 19:47:43,045 -- [ERROR] -- (logger.py:16): This is a error message!
+2024-01-08 19:47:43,045 -- [CRITICAL] -- (logger.py:17): This is a critical message!
+2024-01-08 19:48:12,864 -- [ERROR] -- (logger.py:35): fuck
+2024-01-08 19:48:12,864 -- [INFO] -- (logger.py:38): This is a info message!
+2024-01-08 19:48:12,864 -- [WARNING] -- (logger.py:39): This is a warning message!
+2024-01-08 19:48:12,864 -- [ERROR] -- (logger.py:40): This is a error message!
+2024-01-08 19:48:12,864 -- [CRITICAL] -- (logger.py:41): This is a critical message!
