@@ -20,6 +20,19 @@ class Adapter():
 
 
 class CompNodeManager():
+    r'''
+    ## loggin protocol:
+    >> workdict = {1:{"state":"ALIVE","input":"some files","output":"some files","idx":1,"link":["1->2",],"RunScript": 'echo hello_world'}
+    >>           ,2:{"state":"ALIVE","input":"some files","output":"some files","idx":2,"link":["1->2",],"RunScript": 'echo hello_world'}}
+    >> nlist = [
+    >>            {'nodename':'my_pc','username':'shirui','hostname':'1.1.1.1','port':22,'key':'shirui','pkey':None},
+    >>            {'nodename':'SuperComputer_center','username':'shirui','hostname':'md.me','port':22,'key':None,'pkey':'rsa.txt'},
+    >>            ]
+    >> m = Manager(workdict=workdict,CompNodesList=nlist)
+    >> m.LogginProp()
+    >> m.ConnectNode('my_pc')
+    >> m.CloseNode('my_pc')
+    '''
 
 
     def set_Log(self):
@@ -37,12 +50,12 @@ class CompNodeManager():
         if hpc is True:
             logger.info('Use resources from High Performance Computer Supercomputingcenter')
             self.CompNodes = {}
-            for master in self.nodeslist:
+            for master in self.CompNodesList:
                 self.CompNodes[master['nodename']] = master
         else:
             logger.info('Use resources from Personal cluster')
             self.CompNodes = {}
-            for node in self.nodeslist:
+            for node in self.CompNodesList:
                 self.CompNodes[node['nodename']] = node
         return
 
@@ -83,7 +96,7 @@ class CompNodeManager():
         return
 
 class Manager(CompNodeManager):
-    def __init__(self,workjson:str = None , workdict : Dict = None, nodeslist: List[Dict,]=None):
+    def __init__(self,workjson:str = None , workdict : Dict = None, CompNodesList: List[Dict,]=None):
         r'''
 
         :param workjson: json represented the work flow
@@ -103,8 +116,8 @@ class Manager(CompNodeManager):
             self.workdict = json.loads(self.workjson)
         logger.info('Has load workflow data.')
         print(self.workdict)
-        self.nodeslist = nodeslist
-        if self.nodeslist is None:
+        self.CompNodesList = CompNodesList
+        if self.CompNodesList is None:
             logger .error('There are no computer resources in nodes list.')
         self.ConnectedNodesList = []
         self.ConnectedClient = {}
@@ -223,7 +236,7 @@ if __name__ == '__main__':
                 {'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
                 {'nodename':'node2','username':'shirui','hostname':'tycs.nsccty.com','port':65091,'key':None,'pkey':'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0108162129_rsa.txt'},
                 ]
-    m1 = Manager(workdict=workdict,nodeslist=nlist)
+    m1 = Manager(workdict=workdict,CompNodesList=nlist)
     WorkGragh = m1.JsonToWorkGraph()
     WorkGragh.nodes[1]['WorkNode']
     m1.LogginProp(hpc=True)
