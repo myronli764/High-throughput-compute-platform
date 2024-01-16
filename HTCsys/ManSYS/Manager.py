@@ -1,3 +1,5 @@
+import os.path
+
 import paramiko
 from utils.logger import logger
 from utils.Staff import WorkInfo,CompNode
@@ -6,6 +8,7 @@ import json
 import networkx as nx
 from DataBase.database import  WorkFlowDataBase, WorkNode, WorkFlow
 from LaunchSYS.Launcher import Launcher
+import numpy as np
 
 def dfs(G:nx.DiGraph,start,visited=None):
     if visited is None:
@@ -16,23 +19,52 @@ def dfs(G:nx.DiGraph,start,visited=None):
             visited.add(nei)
         dfs(G,nei,visited)
     return visited
-def bfs(G:nx.DiGraph,start,visited=None):
+def bfs(G:nx.DiGraph,start,visited=None,visited_path=[]):
     if start == set():
-        return visited
+        return visited_path
     if visited is None:
         visited = []
         visited.append(start)
+    if visited_path == []:
+        visited_path.append(start)
     if type(start) is int:
         start = {start}
     neis = set()
+    neis_ = []
     for s in start:
         for n in G.neighbors(s):
             if n not in neis and n not in visited:
                 neis.add(n)
+                neis_.append(n)
                 visited.append(n)
+    visited_path.append(neis_)
     #print(visited,'*',neis)
     return bfs(G,neis,visited)
-
+###  test for bfs
+#G = nx.DiGraph()
+#G.add_edges_from([(i,i+1) for i in range(5)])
+#G.add_edges_from([(i,i+1) for i in range(6,8)])
+#G.add_edges_from([(i,i+1) for i in range(9,10)])
+#G.add_edges_from([(i,i+1) for i in range(12,14)])
+#G.add_edge(1,2)
+#G.add_edge(1,6)
+#G.add_edge(7,9)
+#G.add_edge(13,7)
+#ini_nodes = []
+#for n in G.nodes:
+#    predecessor = G.predecessors(n)
+#    if list(predecessor) == []:
+#        ini_nodes.append(n)
+#print(bfs(G,ini_nodes))
+#import matplotlib.pyplot as plt
+#pos = {
+#    0:np.array([6,7]),1:np.array([6,6]),2:np.array([5,5]),3:np.array([5,4]),4:np.array([4,3]),5:np.array([4,2]),
+#    6:np.array([7,5]),7:np.array([7,4]),8:np.array([6,3]),9:np.array([8,3]),10:np.array([8,2]),
+#    11:np.array([9,7]),12:np.array([9,6]),13:np.array([8,5]),14:np.array([9,4])
+#       }
+#nx.draw(G,pos=pos,arrows=True,with_labels=True)
+#plt.show()
+#raise
 
 class Adapter():
     def __init__(self,scheduling):
@@ -180,11 +212,12 @@ class CompNodeManager():
 
     def RunLauncher(self,worknodeidx:int = None,block=1):
         self.Launchers.get(worknodeidx).RunWorkNode()
+        self.WorkFlow.nodes[worknodeidx]['WorkNode'].state = self.Launchers.get(worknodeidx).STATE2RUNNING()
+        print(self.WorkFlow.nodes[worknodeidx]['WorkNode'].state)
         print(self.Launchers.get(worknodeidx).GetRunStat())
         if block:
             self.Launchers.get(worknodeidx).RunningDetect()
         return
-
 
     def GetRunSTATE(self,worknodeidx):
         if self.Launchers.get(worknodeidx).RunningState():
@@ -193,7 +226,7 @@ class CompNodeManager():
             return 'RUNNING'
 
 class Manager(CompNodeManager):
-    def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[]):
+    def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[],DataPadPath='.'):
         r'''
 
         :param workjson: json represented the work flow
@@ -207,7 +240,6 @@ class Manager(CompNodeManager):
         '''
         self.workjson = workjson
         self.workdict = workdict
-
         if self.workjson is None and self.workdict is None:
             logger.error('Please offer your work json or work dictory.')
         if self.workdict is None:
@@ -216,12 +248,18 @@ class Manager(CompNodeManager):
         self.CompNodesList = [CompNode(_) for _ in  CompNodesList]
         for i,_ in enumerate(self.CompNodesList):
             _.nodeidx = i
-        print(self.CompNodesList)
+        #print(self.CompNodesList)
         if self.CompNodesList is []:
             logger .error('There are no computer resources in nodes list.')
         self.ConnectedNodesList = []
         self.ConnectedClient = {}
+        self.CompleteWorkSet = set()
+        databasepath = os.path.join(DataPadPath,'DataPad')
+        if not os.path.exists(databasepath):
+            os.mkdir(databasepath)
+        self.DataPadPath = databasepath
         self.stat = {}## {'workflow':,'database':,'launcher':}
+
 
     def addWorkNode(self,workdict):
         self.workdict.update(workdict)
@@ -262,20 +300,61 @@ class Manager(CompNodeManager):
         self.JsonToWorkGraph()
         self.WorkFlowToDataBase()
 
-    def Update(self,workflow,database):
-        self.WorkFlow = workflow
-        self.DataBase = database
+    def Update(self,worknodeids:set,state:str):
+        for idx in worknodeids:
+            self.WorkFlow.nodes[idx]['WorkNode'].state = state
+            self.DataBase.workflow.WorkGraph.nodes[idx]['WorkNode'].state = state
 
-    def ScanWorkFlow(self) -> List[WorkNode,]:
+    def ScanWorkFlow(self) :
         r'''
         ## this method is used to Scan the WorkFlow Graph, and get a list of 'READY' work, update the database and workflow
+        ## improve : this algorithm is suitable for small graph, O(en)
         :return:
         '''
+        ini_nodes = []
+        digraph = {}
+        for idx in self.WorkFlow.nodes:
+            digraph[idx] = {}
+            precessors = self.WorkFlow.predecessors(idx)
+            successors = self.WorkFlow.successors(idx)
+            digraph[idx]['parents'] = list(precessors)
+            digraph[idx]['children'] = list(successors)
+            if digraph[idx]['parents'] == []:
+                ini_nodes.append(idx)
+        launch_paths = bfs(self.WorkFlow,ini_nodes)
+        for idxs in launch_paths:
+            for idx in idxs:
+                #print((self.WorkFlow.nodes[idx]['WorkNode']).state)
+                if (self.WorkFlow.nodes[idx]['WorkNode']).state == 'COMPLETE':
+                    self.CompleteWorkSet.add(idx)
+
+        logger.info(f'The follow works have complete: {self.CompleteWorkSet}.')
+        launchpad = set()
+        for idxs in launch_paths:
+            for idx in idxs:
+                if idx in self.CompleteWorkSet:
+                    continue
+                if (self.WorkFlow.nodes[idx]['WorkNode']).state != 'ALIVE':
+                    continue
+                parents = digraph[idx]['parents']
+                children = digraph[idx]['children']
+                if parents == []:
+                    launchpad.add(idx)
+                    continue
+                isready = 1
+                for pre in parents:
+                    if (self.WorkFlow.nodes[pre]['WorkNode']).state != 'COMPLETE':
+                        isready = 0
+                if isready:
+                    launchpad.add(idx)
         WorkIsDone = 0
-        Ready_list = []
-        self.ReadyList = Ready_list
-        self.Update() # update for state: 'ALIVE' -> 'READY'
-        self.DataBase.dump()
+        if launchpad == set():
+            WorkIsDone = 1
+            self.LaunchPad = launchpad
+            return WorkIsDone
+        self.LaunchPad = launchpad
+        self.Update(launchpad,'READY') # update for state: 'ALIVE' -> 'READY'
+        self.DataBase.dump(to_dir=self.DataPadPath)
         return WorkIsDone
 
     def AllocateResources(self):
@@ -293,7 +372,7 @@ class Manager(CompNodeManager):
         ## is connect?
         :return:
         '''
-        self.Update() # update for state: 'READY' -> 'RUN'
+        self.Update(self.LaunchPad,'RUNNING') # update for state: 'READY' -> 'RUNNING'
         self.DataBase.dump()
         return
 
@@ -315,14 +394,34 @@ if __name__ == '__main__':
                 {'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
                 {'nodename':'node2','username':'shirui','hostname':'tycs.nsccty.com','port':65091,'key':None,'pkey':'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0108162129_rsa.txt'},
                 ]
-    m1 = Manager(workdict=workdict,CompNodesList=nlist)
+    ## test for ScanWorkFlow
+    workdict = {
+        0: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 0, "idx": 0, "link": ["0->1", ]},
+        1: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 1, "idx": 1, "link": ["1->2", "1->6"]},
+        2: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 2, "idx": 2, "link": ["2->3", ]},
+        3: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 3, "idx": 3, "link": ["3->4", ]},
+        4: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 4, "idx": 4, "link": ["4->5", ]},
+        5: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 5, "idx": 5, "link": []},
+        6: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 6, "idx": 6, "link": ["6->7", ]},
+        7: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 7, "idx": 7, "link": ["7->8", "7->9"]},
+        8: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 8, "idx": 8, "link": []},
+        9: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 9, "idx": 9, "link": ["9->10", ]},
+        10: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 10, "idx": 10, "link": []},
+        11: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 11, "idx": 11, "link": ["11->12", ]},
+        12: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 12, "idx": 12, "link": ["12->13", ]},
+        13: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 13, "idx": 13, "link": ["13->7"]},
+
+    }
+    m1 = Manager(workdict=workdict,CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase')
+
     m1.LogginProp()
-    m1.ConnectNode('node1')
+    #m1.ConnectNode('node1')
     m1.JSONToWorkFlow()
-    worknode = m1.WorkFlow.nodes[1]['WorkNode']
-    print(worknode.RunScript)
-    m1.SetLaunch(1,0)
-    m1.RunLauncher(1,block=1)
+    m1.ScanWorkFlow()
+    #worknode = m1.WorkFlow.nodes[1]['WorkNode']
+    #print(worknode.state)
+    #m1.SetLaunch(1,0)
+    #m1.RunLauncher(1,block=1)
 
     #worknode.UnifyRunScript()
     #print(worknode.RunScript)

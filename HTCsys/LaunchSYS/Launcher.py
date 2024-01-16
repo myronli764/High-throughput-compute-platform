@@ -31,10 +31,35 @@ class Launcher():
         if hasattr(self,'nodename') is None:
             raise logger.error(f'WorkNode {self.WorkNodeInfo.name} failed to allocate CompNode.')
 
-    def STATEToRUNING(self):
+    def STATE2ALIVE(self):
+        ## return the state, but set by Manager
+        logger.info(f'The work in node {self.nodename} is ALIVE.')
+        return 'ALIVE'
+
+    def STATE2READY(self):
+        ## return the state, but set by Manager
+        logger.info(f'The work in node {self.nodename} is READY.')
+        return 'READY'
+
+    def STATE2RUNNING(self):
         ## return the state, but set by Manager
         logger.info(f'The work in node {self.nodename} is RUNNING.')
         return 'RUNNING'
+
+    def STATE2COMPLETE(self):
+        ## return the state, but set by Manager
+        logger.info(f'The work in node {self.nodename} is COMPLETE.')
+        return 'COMPLETE'
+
+    def STATE2ERROR(self):
+        ## return the state, but set by Manager
+        logger.info(f'The work in node {self.nodename} is ERROR.')
+        return 'ERROR'
+
+    def STATE2DEAD(self):
+        ## return the state, but set by Manager
+        logger.info(f'The work in node {self.nodename} is DEAD.')
+        return 'DEAD'
 
     def SetClient(self,client:paramiko.SSHClient):
         self.Client = client
@@ -99,6 +124,7 @@ class Launcher():
             self.WorkNodeInfo.pid_in_CNode = pid
             logger.info(f'get pid {pid} of the work in the Compute Node {self.nodename}.')
             ret = [pid,__]
+            self.WorkNodeInfo.state = self.STATE2RUNNING()
             return ret
         if mode == 'sbatch':
             channel1 = self.Client.get_transport().open_session()
@@ -114,6 +140,7 @@ class Launcher():
             self.WorkNodeInfo.pid_in_CNode = pid
             logger.info(f'get pid {pid} of the work in the Compute Node {self.nodename}.')
             ret = [pid,_]
+            self.WorkNodeInfo.state = self.STATE2RUNNING()
             return ret
 
     def GetRunStat(self,mode='cluster'):
@@ -168,8 +195,7 @@ if __name__ == '__main__':
         {'nodename': 'node2', 'username': 'shirui', 'hostname': 'tycs.nsccty.com', 'port': 65091, 'key': None,
          'pkey': 'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0113174144_rsa.txt'},
     ]
-    m1 = Manager(workdict=workdict, CompNodesList=nlist)
-
+    m1 = Manager(workdict=workdict, CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase')
     m1.LogginProp()
     m1.ConnectNode('node1')
     launcher.SetClient(m1.ConnectedClient['node1'])
@@ -177,7 +203,7 @@ if __name__ == '__main__':
     ret = launcher.RunWorkNode(block=0)
     print('cwd:',launcher.GetAbsPath())
     print(launcher.GetRunStat())
-    launcher.STATEToRUNING()
+    launcher.STATE2RUNNING()
     time.sleep(5)
     launcher.KillRun()
     launcher.RunningDetect()
