@@ -3,6 +3,7 @@ import re
 from utils.logger import logger
 import json
 import networkx as nx
+from utils.Staff import WorkInfo
 
 class LogData():
     def __init__(self,logfile):
@@ -32,17 +33,31 @@ class WorkNode():
          workinfo = {1:{"state":"ALIVE","input":["some files",],"output":"some files","idx":1,"link":["1->2",],}
 
         '''
-        self.name = list(workinfo.keys())[0]
-        for info,value in workinfo[self.name].items():
-            self.__setattr__(info,value)
+        workinfo = WorkInfo(workinfo=workinfo)
+        self.name = workinfo.name
+        for attr in dir(workinfo):
+            if attr.startswith('__'):
+                continue
+            self.__setattr__(attr,workinfo.__getattribute__(attr))
         if type(self.input) is WorkNode:
             self.input = self.input.output
-        if workinfo[self.name].get('RunScript') is None:
-            self.RunScript = ''
-        self.cwd = ''
-        self.pid_in_CNode = 0
 
-    def AddRunScript(self,script:str,shell='bash',spec: Dict=None) -> str:
+
+    def UnifyRunScript(self):
+        logger.info('Unify the RunScript.')
+        script = self.RunScript
+        command_list = script.split('$$')
+        matches = re.findall(r'\$\$(.*?)\$\$',script)
+        for pos,i in enumerate(command_list):
+            if i in matches:
+                io_list = re.split(r'\[|\]',i)
+                io_list = [ _ for _ in io_list if _ != '']
+                command_list[pos] = self.__getattribute__(io_list[0])[int(io_list[1])]
+        script = ''.join(command_list)
+        logger.info(f'Unify the RunScript [{self.RunScript}] to [{script}].')
+        self.RunScript = script
+
+    def AddRunScript(self,script:str,shell='bash',spec: Dict= {}) -> str:
         r'''
         :param script: script should specific the relationship among the command, input and output, use $$ symbol to specific the files
         :param spec: Dict to special option, such as command work directory cwd
@@ -51,7 +66,6 @@ class WorkNode():
                self.input = ['ini.tpr',]
                self.output = ['out.gro',]
                example_script = "gmx mdrun -deffnm $$input[0]$$ -v -c $$output[0]$$ -ntmpi 1 -ntomp 12 -gpu_id 0 "
-
         :param shell: 'bash' is default
         :return: script
         '''
@@ -64,10 +78,24 @@ class WorkNode():
                     io_list = re.split(r'\[|\]',i)
                     io_list = [ _ for _ in io_list if _ != '']
                     command_list[pos] = self.__getattribute__(io_list[0])[int(io_list[1])]
-            if spec is not None:
+            if spec.get('workdir') is not None:
                 workdir = spec['workdir']
                 chdir = [f'cd {workdir}; ']
                 command_list = chdir + command_list
+            ## use spec input output
+            if spec.get('input') is not None:
+                for pos, i in enumerate(command_list):
+                    if i in matches:
+                        io_list = re.split(r'\[|\]', i)
+                        io_list = [_ for _ in io_list if _ != '']
+                        command_list[pos] = spec['input'][int(io_list[1])]
+            elif spec.get('output') is not None:
+                for pos, i in enumerate(command_list):
+                    if i in matches:
+                        io_list = re.split(r'\[|\]', i)
+                        io_list = [_ for _ in io_list if _ != '']
+                        command_list[pos] = spec['output'][int(io_list[1])]
+
             script = ''.join(command_list)
             if self.RunScript == '':
                 self.RunScript = script
@@ -75,6 +103,7 @@ class WorkNode():
                 self.RunScript = self.RunScript + '; ' + script
             logger.info(f'Work Named {self.name} Add RunScript: [{script}] to [{self.RunScript}].')
             return script
+
     def CleanRunScript(self):
         self.RunScript = ''
         logger.info(f'Clean All RunScript.')
@@ -119,17 +148,16 @@ class WorkFlowDataBase():
 if __name__ == '__main__':
 
     ## test for WorkNode
-    workinfo = {
-        1: {"state": "ALIVE", "input": ["ini.gro", "md.mdp", "topol.top"], "output": ["out.tpr"] , "idx": 1, "link": ["1->2", ], "RunScript": 'echo hello_world'}}
+    workinfo = {"state": "ALIVE", "input": ["ini.gro", "md.mdp", "topol.top"], "output": ["out.tpr"] , "idx": 1, "link": ["1->2", ], "RunScript": 'echo hello_world','name':1}
     wn1 = WorkNode(workinfo=workinfo)
     script = wn1.AddRunScript('gmx grompp -f $$input[1]$$ -c $$input[0]$$ -p $$input[2]$$ -o $$output[0]$$ -maxwarn 100')
     #wn1.AddRunScript('gmx energy -f $$input[0]$$ -o $$input[0]$$ ')
     #wn1.CleanRunScript()
     #print(wn1.RunScript,'**')
-    workinfo = {
-        2: {"state": "ALIVE", "input": ["run.py","ini.xml"], "output": [], "idx": 2,
-            "link": ["1->2",], }}
+    workinfo =  {"state": "ALIVE", "input": ["run.py","ini.xml"], "output": [], "idx": 2,
+            "link": ["1->2",], 'name':2}
     wn2 = WorkNode(workinfo=workinfo)
+    print(dir(wn2))
     script = wn2.AddRunScript('hoomd $$input[0]$$ $$input[1]$$ --gpu=0',spec={'workdir':'/home/lmy'})
     ## test for WorkFlow
     wf = WorkFlow()
@@ -147,7 +175,7 @@ if __name__ == '__main__':
     wfdb2 = Man.WorkFlowToDataBase()
     print(Man.WorkFlow.nodes[1]['WorkNode'].state)
     from LaunchSYS.Launcher import Launcher
-    l = Launcher(wn1,{'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None})
-    l.STATEToRUNING()
-    print(Man.WorkFlow.nodes[1]['WorkNode'].state)
+    #l = Launcher(wn1,{'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None})
+    #l.STATEToRUNING()
+    #print(Man.WorkFlow.nodes[1]['WorkNode'].state)
 

@@ -1,10 +1,11 @@
 import paramiko
 from utils.logger import logger
+from utils.Staff import WorkInfo,CompNode
 from typing import List, Tuple, Union, Dict
 import json
 import networkx as nx
 from DataBase.database import  WorkFlowDataBase, WorkNode, WorkFlow
-
+from LaunchSYS.Launcher import Launcher
 
 class Adapter():
     def __init__(self,scheduling):
@@ -18,6 +19,7 @@ class Adapter():
                 script = 'sbatch'
             return script
 
+#def WorknodeToInfo():
 
 class CompNodeManager():
     r'''
@@ -34,7 +36,6 @@ class CompNodeManager():
     >> m.CloseNode('my_pc')
     '''
 
-
     def set_Log(self):
         return
 
@@ -42,39 +43,77 @@ class CompNodeManager():
 
     def LogginProp(self, hpc=False):
         r'''
-
+        get a dict that for search compnode: nodeidx/nodename -> node
         :param hpc: if True use Sugon hpc for computing, default False
         :return:
         '''
-
+        self.CompNodesList: List[CompNode,]
         if hpc is True:
             logger.info('Use resources from High Performance Computer Supercomputingcenter')
             self.CompNodes = {}
             for master in self.CompNodesList:
-                self.CompNodes[master['nodename']] = master
+                self.CompNodes[master.nodeidx] = master
+                self.CompNodes[master.nodename] = master
         else:
             logger.info('Use resources from Personal cluster')
             self.CompNodes = {}
             for node in self.CompNodesList:
-                self.CompNodes[node['nodename']] = node
+                self.CompNodes[node.nodeidx] = node
+                self.CompNodes[node.nodename] = node
         return
+
+    def ConnectNodeTest(self):
+        for info in self.CompNodesList:
+            nodename = info.nodename
+            info: CompNode
+            hostname, username, port, key, pkey = (
+                info.hostname, info.username, info.port, info.key, info.pkey)
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            if info.loggin == 'key':
+                try:
+                    client.connect(hostname=hostname, username=username, port=port, password=key)
+                    stdin, stdout, stderr = client.exec_command('echo "hello word!"')
+                    logger.info(f'Successfully connect to node {nodename}, say to it : {stdout.read().decode()} ')
+                    self.ConnectedNodesList.append(nodename)
+                    self.ConnectedClient[nodename] = client
+                    self.ConnectedClient[info.nodeidx] = client
+                    client.close()
+                except paramiko.ssh_exception.AuthenticationException as e:
+                    logger.error(f'FATAL ERROR: {e}')
+            elif info.loggin == 'pkey':
+                try:
+                    private_key = paramiko.RSAKey.from_private_key_file(pkey)
+                    client.connect(hostname=hostname, username=username, port=port, pkey=private_key)
+                    stdin, stdout, stderr = client.exec_command('echo "hello word!"')
+                    logger.info(f'Successfully connect to node {nodename}, say to it : {stdout.read().decode()} ')
+                    self.ConnectedNodesList.append(nodename)
+                    self.ConnectedClient[nodename] = client
+                    self.ConnectedClient[info.nodeidx] = client
+                    client.close()
+                except paramiko.ssh_exception.AuthenticationException as e:
+                    logger.error(f'FATAL ERROR: {e}')
+            else:
+                logger.error(f'Failed to connect to node {nodename}. Please provide your key or public key to {nodename}.')
 
     def ConnectNode(self, nodename):
         info = self.CompNodes[nodename]
+        info: CompNode
         hostname, username, port, key, pkey = (
-        info['hostname'], info['username'], info['port'], info['key'], info['pkey'])
+        info.hostname, info.username, info.port, info.key, info.pkey)
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        if key is not None:
+        if info.loggin == 'key':
             try:
                 client.connect(hostname=hostname, username=username, port=port, password=key)
                 stdin, stdout, stderr = client.exec_command('echo "hello word!"')
                 logger.info(f'Successfully connect to node {nodename}, say to it : {stdout.read().decode()} ')
                 self.ConnectedNodesList.append(nodename)
                 self.ConnectedClient[nodename] = client
+                self.ConnectedClient[info.nodeidx] = client
             except paramiko.ssh_exception.AuthenticationException as e:
                 logger.error(f'FATAL ERROR: {e}')
-        elif pkey is not None:
+        elif info.loggin == 'pkey':
             try:
                 private_key = paramiko.RSAKey.from_private_key_file(pkey)
                 client.connect(hostname=hostname, username=username, port=port, pkey=private_key)
@@ -82,21 +121,42 @@ class CompNodeManager():
                 logger.info(f'Successfully connect to node {nodename}, say to it : {stdout.read().decode()} ')
                 self.ConnectedNodesList.append(nodename)
                 self.ConnectedClient[nodename] = client
+                self.ConnectedClient[info.nodeidx] = client
             except paramiko.ssh_exception.AuthenticationException as e:
                 logger.error(f'FATAL ERROR: {e}')
         else:
             logger.error(f'Failed to connect to node {nodename}. Please provide your key or public key to {nodename}.')
 
+
+
     def CloseNode(self, nodename):
         self.ConnectedClient[nodename].close()
 
     ## set a Launch system,
-    def set_Launch(self):
-        ## self.Launcher = LaunchSYS
+    def SetLaunch(self,worknodeidx,compnodeidx):
+        r'''
+        set Launcher to self.Launchers:Dict, k = worknodeidx -> v = Launcher(worknode,compnode)
+        :param worknodeidx: use worknodeidx/worknodename to specific a worknode
+        :param compnodeidx: use compnodeidx/compnodename to specific a compnode
+        :return:
+        '''
+        if not hasattr(self,'WorkFlow'):
+            logger.error('You need to add WorkFlow to the Manager before set a launch')
+            raise
+        if not hasattr(self,'Launchers'):
+            self.Launchers = {}
+        self.WorkFlow.nodes[worknodeidx]['CompNodes'] = self.CompNodes[compnodeidx]
+        self.Launchers[worknodeidx] = Launcher(worknodeinfo=self.WorkFlow.nodes[worknodeidx]['WorkNode'],compnode=self.CompNodes[compnodeidx])
+        self.Launchers.get(worknodeidx).SetClient(self.ConnectedClient[compnodeidx])
+        logger.info(f'Set worknode-{worknodeidx} to compnode-{compnodeidx}.')
         return
 
+    def RunLauncher(self,lkey:str = None):
+        return
+
+
 class Manager(CompNodeManager):
-    def __init__(self,workjson:str = None , workdict : Dict = None, CompNodesList: List[Dict,]=None):
+    def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[]):
         r'''
 
         :param workjson: json represented the work flow
@@ -110,14 +170,17 @@ class Manager(CompNodeManager):
         '''
         self.workjson = workjson
         self.workdict = workdict
+
         if self.workjson is None and self.workdict is None:
             logger.error('Please offer your work json or work dictory.')
         if self.workdict is None:
             self.workdict = json.loads(self.workjson)
         logger.info('Has load workflow data.')
-        print(self.workdict)
-        self.CompNodesList = CompNodesList
-        if self.CompNodesList is None:
+        self.CompNodesList = [CompNode(_) for _ in  CompNodesList]
+        for i,_ in enumerate(self.CompNodesList):
+            _.nodeidx = i
+        print(self.CompNodesList)
+        if self.CompNodesList is []:
             logger .error('There are no computer resources in nodes list.')
         self.ConnectedNodesList = []
         self.ConnectedClient = {}
@@ -126,10 +189,12 @@ class Manager(CompNodeManager):
     def addWorkNode(self,workdict):
         self.workdict.update(workdict)
 
+
     def JsonToWorkGraph(self,):
         G_work = nx.DiGraph()
         for n,info in self.workdict.items():
-            worknode = WorkNode({n:info})
+            worknode = WorkNode(info)
+            worknode.UnifyRunScript()
             G_work.add_node(worknode.idx,WorkNode=worknode)
             edges = info['link']
             for e in edges:
@@ -206,42 +271,24 @@ class Manager(CompNodeManager):
         return
 
 if __name__ == '__main__':
-    workjson = '''
-    {
-        "state": "ALIVE",
-        "input": "some files",
-        "output": "some files",
-        "number": "1",
-        "link": {
-            "2": "1-2"
-        }
-    }
-    '''
-    json_str = '''
-    {
-        "name": "John",
-        "age": 30,
-        "address": {
-            "street": "123 Main St",
-            "city": "New York",
-            "country": "USA"
-        }
-    }
-    '''
-    workdict = {1:{"state":"ALIVE","input":"some files","output":"some files","idx":1,"link":["1->2",],"RunScript": 'echo hello_world'}
-               ,2:{"state":"ALIVE","input":"some files","output":"some files","idx":2,"link":["1->2",],"RunScript": 'echo hello_world'}}
-    #s = json.dumps(workdict)
-    #print(s)
+    workdict = {1:{"state":"ALIVE","input":["lmy/test/Run_Data/trial/test",],"output":["lmy/test/Run_Data/trial/test.gro",],"idx":1,"link":["1->2",],
+                   "RunScript": 'gmx mdrun -deffnm $$input[0]$$ -v -c $$output[0]$$ -ntmpi 1 -ntomp 12 -gpu_id 3','name':1}
+               ,2:{"state":"ALIVE","input":"some files","output":"some files","idx":2,"link":["1->2",],"RunScript": 'echo hello_world','name':1}}
     nlist = [
                 {'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
                 {'nodename':'node2','username':'shirui','hostname':'tycs.nsccty.com','port':65091,'key':None,'pkey':'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0108162129_rsa.txt'},
                 ]
     m1 = Manager(workdict=workdict,CompNodesList=nlist)
-    WorkGragh = m1.JsonToWorkGraph()
-    WorkGragh.nodes[1]['WorkNode']
-    m1.LogginProp(hpc=True)
-    m1.ConnectNode('node2')
-    m1.CloseNode('node2')
+    m1.LogginProp()
+    m1.ConnectNode('node1')
     m1.JSONToWorkFlow()
-    print(m1.WorkFlow)
+    worknode = m1.WorkFlow.nodes[1]['WorkNode']
+    print(worknode.RunScript)
+    m1.SetLaunch(1,0)
+    m1.Launchers.get(1).SetClient(m1.ConnectedClient[0])
+    m1.Launchers.get(1).RunWorkNode()
+    m1.Launchers.get(1).GetRunStat()
+    m1.Launchers.get(1).RunningDetect()
+    #worknode.UnifyRunScript()
+    #print(worknode.RunScript)
     #print(m1.CompNodes)

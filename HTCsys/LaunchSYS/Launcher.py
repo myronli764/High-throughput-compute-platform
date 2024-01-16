@@ -1,5 +1,5 @@
 import paramiko
-
+from utils.Staff import WorkInfo,CompNode
 from utils.logger import logger
 from DataBase.database import WorkNode
 from typing import Dict
@@ -13,7 +13,7 @@ nlist = [
 '''
 class Launcher():
     ### do not sent the WorkNode to Launcher, just information is enough
-    def __init__(self,worknodeinfo: Dict,compnode:Dict):
+    def __init__(self,worknodeinfo: WorkInfo,compnode:CompNode):
         r'''
         ### must remove the backspace in the right of the RunScript!!
 
@@ -21,45 +21,49 @@ class Launcher():
         :param compnode: {'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None}
         '''
         self.WorkNodeInfo = worknodeinfo
-        for i,info in compnode.items():
-            self.__setattr__(i,info)
+        attrs = dir(compnode)
+        for attr in attrs:
+            if attr.startswith('__'):
+                continue
+            self.__setattr__(attr,compnode.__getattribute__(attr))
         if self.WorkNodeInfo is None:
             logger.error(f'there is no work in this compnode')
-        if self.nodename is None:
-            logger.error(f'WorkNode {self.WorkNodeInfo["name"]} failed to allocate CompNode.')
+        if hasattr(self,'nodename') is None:
+            raise logger.error(f'WorkNode {self.WorkNodeInfo.name} failed to allocate CompNode.')
+
     def STATEToRUNING(self):
         ## return the state, but set by Manager
+        logger.info(f'The work in node {self.nodename} is RUNNING.')
         return 'RUNNING'
 
     def SetClient(self,client:paramiko.SSHClient):
         self.Client = client
-    def GetAbsPath(self,slurm=False,cluster=True):
+        logger.info(f'Has set client for {self.nodename}.')
+    def GetAbsPath(self,mode='cluster'):
         r'''
         only linux system, specific the infrastructure.
-        :param slurm:
-        :param cluster:
+        :param mode: ['cluster','slurm'], mode='cluster' for default
         :return:
         '''
-
-        if cluster :
-            RunScript = self.WorkNodeInfo["RunScript"]
+        if mode == 'cluster' :
+            RunScript = self.WorkNodeInfo.RunScript
             pwd = '/usr/sbin/lsof -p `ps -ef | grep "%s" | grep -v grep | awk \'{print $2}\'` | grep cwd | awk \'{print $9}\'' % (RunScript)
             stdin, stdout, stderr = self.Client.exec_command(pwd)
-            cwd = stdout.read().decode()
+            cwd = stdout.read().decode().replace('\n','')
             return cwd
-        if slurm:
-            pwd = f'scontrol show job {self.WorkNodeInfo["pid_in_CNode"]} | grep WorkDir'
+        if mode == 'slurm':
+            pwd = f'scontrol show job {self.WorkNodeInfo.pid_in_CNode} | grep WorkDir'
             stdin, stdout, stderr = self.Client.exec_command(pwd)
-            cwd = stdout.read().decode()
-            return [var.read().decode() for var in [stdin, stdout, stderr]]
+            cwd = stdout.read().decode().replace('\n','')
+            return cwd
 
 
-    def GetCommandInfo(self,slurm=False,cluster=True):
-        if self.WorkNodeInfo['pid_in_CNode'] == 0:
-            logger.error(f'Have not run the command {self.WorkNodeInfo["pid_in_CNode"]}')
+    def GetCommandInfo(self,mode='cluster'):
+        if self.WorkNodeInfo.pid_in_CNode == 0:
+            logger.error(f'Have not run the command {self.WorkNodeInfo.pid_in_CNode}')
             return 0
-        if cluster:
-            exe_info = f'lsos -p {self.WorkNodeInfo["pid_in_CNode"]} | grep cwd'
+        if mode=='cluster':
+            exe_info = f'/usr/sbin/lsof -p {self.WorkNodeInfo.pid_in_CNode} | grep cwd'
             stdin, stdout, stderr = self.Client.exec_command(exe_info)
             info = stdout.read().decode()
             if info == '':
@@ -67,8 +71,8 @@ class Launcher():
             else:
                 info = 'On running'
             return info
-        if slurm:
-            exe_info = f'squeue | grep {self.WorkNodeInfo["pid_in_CNode"]}'
+        if mode == 'slurm':
+            exe_info = f'squeue | grep {self.WorkNodeInfo.pid_in_CNode}'
             stdin, stdout, stderr = self.Client.exec_command(exe_info)
             info = stdout.read().decode()
             if info == '':
@@ -77,45 +81,66 @@ class Launcher():
                 info = 'On queue'
             return info
 
-    def RunWorkNode(self,cluster=True,slurm=False,block=1):
-        if cluster:
-
+    def RunWorkNode(self,mode='cluster',block=1):
+        logger.info(f'mode = {mode}.')
+        if mode == 'cluster':
             channel1 = self.Client.get_transport().open_session()
             channel1.setblocking(block)
-            channel1.exec_command(self.WorkNodeInfo["RunScript"])
+            channel1.exec_command(self.WorkNodeInfo.RunScript)
             self.RunChannel = channel1
-            pid = "ps -ef | grep '%s' | grep -v grep | awk '{print $2}'" % (self.WorkNodeInfo["RunScript"])
+            logger.info('get RunChannel to Run the work.')
+            pid = "ps -ef | grep '%s' | grep -v grep | awk '{print $2}'" % (self.WorkNodeInfo.RunScript)
             channel = self.Client.get_transport().open_session()
             channel.setblocking(block)
             channel.exec_command(pid)
             time.sleep(1)
             pid,__ = (channel.recv(1024).decode(), channel.recv_stderr(1024).decode())
-            ret = pid
-
+            pid = pid.replace('\n', '')
+            self.WorkNodeInfo.pid_in_CNode = pid
+            logger.info(f'get pid {pid} of the work in the Compute Node {self.nodename}.')
+            ret = [pid,__]
             return ret
-        if slurm:
-            channel = self.Client.get_transport().open_session()
-            channel.setblocking(block)
-            stdin, stdout, stderr = channel.exec_command(self.WorkNodeInfo["RunScript"])
-            _, pid, __ = channel.exec_command('%s | awk \'{print $4}\''%(stdout.read().decode()))
-            ret = [var.read().decode() for var in [ stdout, stderr, pid]]
-            channel.close()
+        if mode == 'sbatch':
+            channel1 = self.Client.get_transport().open_session()
+            channel1.setblocking(block)
+            withpidcmd = "%s | awk '{print $4}'" % self.WorkNodeInfo.RunScript
+            channel1.exec_command(withpidcmd)
+            self.RunChannel = channel1
+            logger.info('get RunChannel to Run the work.')
+            time.sleep(10)
+            pid = channel1.recv(1024).decode()
+            _ = channel1.recv_stderr(1024).decode()
+            pid = pid.replace('\n', '')
+            self.WorkNodeInfo.pid_in_CNode = pid
+            logger.info(f'get pid {pid} of the work in the Compute Node {self.nodename}.')
+            ret = [pid,_]
             return ret
 
-    def GetRunStat(self,slurm=False,cluster=True):
+    def GetRunStat(self,mode='cluster'):
         stat = {}
-        stat['state'] = self.WorkNodeInfo["state"]
+        stat['state'] = self.WorkNodeInfo.state
         stat['pwd'] = self.GetAbsPath()
-        stat['RunScript'] = self.WorkNodeInfo["RunScript"]
-        if slurm is True:
+        stat['RunScript'] = self.WorkNodeInfo.RunScript
+        stat['pid_in_CNode'] = self.WorkNodeInfo.pid_in_CNode
+        if mode=='slurm' :
             stat['squeue'] = self.GetCommandInfo()
-        return stat
+        stat_s = ''
+        for k in stat:
+            stat_s += f'{k}  : {stat[k]}  \n'
+        return stat_s
     def RunningDetect(self):
         while not self.RunChannel.exit_status_ready():
             time.sleep(1)
         self.stdout = self.RunChannel.recv(1024).decode()
         self.stderr = self.RunChannel.recv_stderr(1024).decode()
         return
+
+    def KillRun(self,mode='cluster'):
+        if mode == 'cluster':
+            self.Client.exec_command('kill -9 %s' % self.WorkNodeInfo.pid_in_CNode)
+        if mode == 'slurm':
+            self.Client.exec_command('scancel %s' % self.WorkNodeInfo.pid_in_CNode)
+        logger.info(f'Has kill the work in the Compute Node {self.nodename} with pid {self.WorkNodeInfo.pid_in_CNode}.')
 
 if __name__ == '__main__':
     from ManSYS.Manager import Manager
@@ -124,8 +149,10 @@ if __name__ == '__main__':
     ## 'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3'
     Worknodeinfo = {"state":"ALIVE","input":["zxz",],"output":"some files","idx":1,"link":["1->2",],
                     "RunScript":'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3',
-                    "pid_in_CNode":0,"cwd":'/home'}
-    launcher = Launcher(worknodeinfo=Worknodeinfo,compnode=Cnode)
+                    "pid_in_CNode":0,"cwd":'/home','name':1}
+    Cnode = CompNode(Cnode)
+    Wnode = WorkInfo(Worknodeinfo)
+    launcher = Launcher(worknodeinfo=Wnode,compnode=Cnode)
     ## test for cluster
     workdict = {1: {"state": "ALIVE", "input": "some files", "output": "some files", "idx": 1, "link": ["1->2", ],
                     "RunScript": 'echo hello_world'}
@@ -137,7 +164,7 @@ if __name__ == '__main__':
         {'nodename': 'node1', 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527',
          'pkey': None},
         {'nodename': 'node2', 'username': 'shirui', 'hostname': 'tycs.nsccty.com', 'port': 65091, 'key': None,
-         'pkey': 'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0108162129_rsa.txt'},
+         'pkey': 'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0113174144_rsa.txt'},
     ]
     m1 = Manager(workdict=workdict, CompNodesList=nlist)
 
@@ -147,6 +174,10 @@ if __name__ == '__main__':
     #print(launcher.WorkNodeInfo)
     ret = launcher.RunWorkNode(block=0)
     print('cwd:',launcher.GetAbsPath())
+    print(launcher.GetRunStat())
+    launcher.STATEToRUNING()
+    time.sleep(5)
+    launcher.KillRun()
     launcher.RunningDetect()
     print(launcher.stdout,ret)
 
