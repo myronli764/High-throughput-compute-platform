@@ -7,6 +7,33 @@ import networkx as nx
 from DataBase.database import  WorkFlowDataBase, WorkNode, WorkFlow
 from LaunchSYS.Launcher import Launcher
 
+def dfs(G:nx.DiGraph,start,visited=None):
+    if visited is None:
+        visited = set()
+        visited.add(start)
+    for nei in G.neighbors(start):
+        if nei not in visited:
+            visited.add(nei)
+        dfs(G,nei,visited)
+    return visited
+def bfs(G:nx.DiGraph,start,visited=None):
+    if start == set():
+        return visited
+    if visited is None:
+        visited = []
+        visited.append(start)
+    if type(start) is int:
+        start = {start}
+    neis = set()
+    for s in start:
+        for n in G.neighbors(s):
+            if n not in neis and n not in visited:
+                neis.add(n)
+                visited.append(n)
+    #print(visited,'*',neis)
+    return bfs(G,neis,visited)
+
+
 class Adapter():
     def __init__(self,scheduling):
         self.ScheduleSystem = scheduling
@@ -151,9 +178,19 @@ class CompNodeManager():
         logger.info(f'Set worknode-{worknodeidx} to compnode-{compnodeidx}.')
         return
 
-    def RunLauncher(self,lkey:str = None):
+    def RunLauncher(self,worknodeidx:int = None,block=1):
+        self.Launchers.get(worknodeidx).RunWorkNode()
+        print(self.Launchers.get(worknodeidx).GetRunStat())
+        if block:
+            self.Launchers.get(worknodeidx).RunningDetect()
         return
 
+
+    def GetRunSTATE(self,worknodeidx):
+        if self.Launchers.get(worknodeidx).RunningState():
+            return 'COMPLETE'
+        else:
+            return 'RUNNING'
 
 class Manager(CompNodeManager):
     def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[]):
@@ -285,10 +322,8 @@ if __name__ == '__main__':
     worknode = m1.WorkFlow.nodes[1]['WorkNode']
     print(worknode.RunScript)
     m1.SetLaunch(1,0)
-    m1.Launchers.get(1).SetClient(m1.ConnectedClient[0])
-    m1.Launchers.get(1).RunWorkNode()
-    m1.Launchers.get(1).GetRunStat()
-    m1.Launchers.get(1).RunningDetect()
+    m1.RunLauncher(1,block=1)
+
     #worknode.UnifyRunScript()
     #print(worknode.RunScript)
     #print(m1.CompNodes)

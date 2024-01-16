@@ -128,6 +128,8 @@ class Launcher():
         for k in stat:
             stat_s += f'{k}  : {stat[k]}  \n'
         return stat_s
+    def RunningState(self):
+        return self.RunChannel.exit_status_ready()
     def RunningDetect(self):
         while not self.RunChannel.exit_status_ready():
             time.sleep(1)
