@@ -71,7 +71,7 @@
     "3": {
         "name": 3,
         "idx": 3,
-        "state": "COMPLETE",
+        "state": "RUNNING",
         "input": [
             "~"
         ],
@@ -88,7 +88,7 @@
     "4": {
         "name": 4,
         "idx": 4,
-        "state": "COMPLETE",
+        "state": "ALIVE",
         "input": [
             "~"
         ],
@@ -99,13 +99,13 @@
         "link": [
             "4->5"
         ],
-        "pid_in_CNode": "56695",
+        "pid_in_CNode": 0,
         "cwd": "~"
     },
     "5": {
         "name": 5,
         "idx": 5,
-        "state": "READY",
+        "state": "ALIVE",
         "input": [
             "~"
         ],
@@ -120,7 +120,7 @@
     "7": {
         "name": 7,
         "idx": 7,
-        "state": "COMPLETE",
+        "state": "RUNNING",
         "input": [
             "~"
         ],
@@ -132,13 +132,13 @@
             "7->8",
             "7->9"
         ],
-        "pid_in_CNode": "56603",
+        "pid_in_CNode": 0,
         "cwd": "~"
     },
     "8": {
         "name": 8,
         "idx": 8,
-        "state": "COMPLETE",
+        "state": "ALIVE",
         "input": [
             "~"
         ],
@@ -147,13 +147,13 @@
         ],
         "RunScript": "sleep 1;ls",
         "link": [],
-        "pid_in_CNode": "56649",
+        "pid_in_CNode": 0,
         "cwd": "~"
     },
     "9": {
         "name": 9,
         "idx": 9,
-        "state": "COMPLETE",
+        "state": "ALIVE",
         "input": [
             "~"
         ],
@@ -164,13 +164,13 @@
         "link": [
             "9->10"
         ],
-        "pid_in_CNode": "8535",
+        "pid_in_CNode": 0,
         "cwd": "~"
     },
     "10": {
         "name": 10,
         "idx": 10,
-        "state": "READY",
+        "state": "ALIVE",
         "input": [
             "~"
         ],
@@ -237,7 +237,7 @@
     "14": {
         "name": 14,
         "idx": 14,
-        "state": "COMPLETE",
+        "state": "RUNNING",
         "input": [
             "~"
         ],
@@ -254,7 +254,7 @@
     "15": {
         "name": 15,
         "idx": 15,
-        "state": "COMPLETE",
+        "state": "ALIVE",
         "input": [
             "~"
         ],
@@ -263,7 +263,7 @@
         ],
         "RunScript": "sleep 1;ls",
         "link": [],
-        "pid_in_CNode": "8583",
+        "pid_in_CNode": 0,
         "cwd": "~"
     }
 }

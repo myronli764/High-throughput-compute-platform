@@ -162,17 +162,18 @@ ncolorset = {
     'ERROR':'red'
 }
 
-def WorkFlowTo2DGraph(workflow:WorkFlow,filename='workflow.png',to_dir='.'):
+def WorkFlowTo2DGraph(workflow:WorkFlow,filename='workflow.png',to_dir='.',pos={}):
     import matplotlib.pyplot as plt
     G = workflow.WorkGraph
     nodes = G.nodes
     n_nodes = len(nodes)
     dn = math.ceil(n_nodes**0.5)
-    pos = {}
-    for n in nodes:
-        pos[n] = np.array([n%dn,int(n/dn)])
-    #pos = nx.spring_layout(G,k=10,iterations=10,pos=pos)
-    pos = nx.spring_layout(G)
+    if pos == {}:
+        for n in nodes:
+            pos[n] = np.array([n%dn,int(n/dn)])
+        #pos = nx.spring_layout(G,k=10,iterations=10,pos=pos)
+        pos = nx.spring_layout(G)
+    #print(pos)
     labels = {node: f'{node}-{G.nodes[node]["WorkNode"].state}' for node in G.nodes}
     nodecolor = []
     for n in G.nodes:
@@ -180,6 +181,7 @@ def WorkFlowTo2DGraph(workflow:WorkFlow,filename='workflow.png',to_dir='.'):
     nx.draw(G, pos=pos, arrows=True, node_size=1000, width=2, node_color=nodecolor,arrowstyle='->',alpha=0.7)
     nx.draw_networkx_labels(G, pos, labels=labels, font_color='blue',font_weight='bold',font_size=8)
     plt.savefig(os.path.join(to_dir,filename))
+    plt.clf()
     #plt.show()
     return
 
@@ -188,7 +190,7 @@ class WorkFlowDataBase():
         self.logdata = LogData(log)
         self.workflow = WorkFlow(workflow)
 
-    def dump(self,filename='database',to_dir=None):
+    def dump(self,filename='database',to_dir=None,pos={}):
         r'''
         dump all data to json, actually need to have log
         :return:
@@ -198,7 +200,7 @@ class WorkFlowDataBase():
         f = open(os.path.join(to_dir,filename+'.info'),'w')
         f.write(repr(self.workflow))
         f.close()
-        WorkFlowTo2DGraph(self.workflow,to_dir=to_dir)
+        WorkFlowTo2DGraph(self.workflow,filename=filename+'.png',to_dir=to_dir,pos=pos)
         return repr(self.workflow)
 
 if __name__ == '__main__':

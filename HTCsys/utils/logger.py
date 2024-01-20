@@ -31,7 +31,7 @@ class DuplicateFilter:
         pass
 
 logger = get_logger(__name__)
-logger.setLevel('WARNING')
+logger.setLevel('INFO')
 
 if __name__ == '__main__':
     logger.debug("This is a debug message!")

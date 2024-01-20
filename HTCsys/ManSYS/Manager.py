@@ -1,5 +1,5 @@
 import os.path
-
+import threading
 import paramiko
 from utils.logger import logger
 from utils.Staff import WorkInfo,CompNode
@@ -66,6 +66,11 @@ def bfs(G:nx.DiGraph,start,visited=None,visited_path=[]):
 #plt.show()
 #raise
 
+def process_task(launcher:Launcher,mode='cluster',block=1):
+    launcher.RunWorkNode(mode=mode,block=block)
+    launcher.RunningDetect()
+    return
+
 class Adapter():
     def __init__(self,scheduling):
         self.ScheduleSystem = scheduling
@@ -121,7 +126,9 @@ class CompNodeManager():
                 self.CompNodes[node.nodename] = node
         return
 
-    def ConnectNodeTest(self):
+
+
+    def ConnectNodeTest(self,close=True):
         for info in self.CompNodesList:
             nodename = info.nodename
             info: CompNode
@@ -133,13 +140,14 @@ class CompNodeManager():
                 try:
                     client.connect(hostname=hostname, username=username, port=port, password=key)
                     stdin, stdout, stderr = client.exec_command('echo "hello word!"')
-                    logger.info(f'Successfully connect to node {nodename}, say to it : {stdout.read().decode()} ')
+                    logger.info(f'Successfully test connect to node {nodename}, say to it : {stdout.read().decode()} ')
                     self.ConnectedNodesList.append(nodename)
                     self.ConnectedClient[nodename] = client
                     self.ConnectedClient[info.nodeidx] = client
-                    client.close()
+                    if close:
+                        client.close()
                 except paramiko.ssh_exception.AuthenticationException as e:
-                    logger.error(f'FATAL ERROR: {e}')
+                    logger.error(f'FATAL ERROR for {nodename}: {e}')
             elif info.loggin == 'pkey':
                 try:
                     private_key = paramiko.RSAKey.from_private_key_file(pkey)
@@ -151,9 +159,11 @@ class CompNodeManager():
                     self.ConnectedClient[info.nodeidx] = client
                     client.close()
                 except paramiko.ssh_exception.AuthenticationException as e:
-                    logger.error(f'FATAL ERROR: {e}')
+                    logger.error(f'COMPNODE: {nodename}, FATAL ERROR: {e}')
             else:
                 logger.error(f'Failed to connect to node {nodename}. Please provide your key or public key to {nodename}.')
+
+
 
     def ConnectNode(self, nodename):
         info = self.CompNodes[nodename]
@@ -190,6 +200,13 @@ class CompNodeManager():
 
     def CloseNode(self, nodename):
         self.ConnectedClient[nodename].close()
+        logger.info(f'close the client: {nodename}.')
+
+    ## use this carefully
+    def SetConnectNodesList(self,nodename):
+        logger.warning('Custom set the connected nodes list, the node may not be test.')
+        self.ConnectedNodesList.append(nodename)
+        return
 
     ## set a Launch system,
     def SetLaunch(self,worknodeidx,compnodeidx):
@@ -204,7 +221,7 @@ class CompNodeManager():
             raise
         if not hasattr(self,'Launchers'):
             self.Launchers = {}
-        self.WorkFlow.nodes[worknodeidx]['CompNodes'] = self.CompNodes[compnodeidx]
+        self.WorkFlow.nodes[worknodeidx]['CompNode'] = self.CompNodes[compnodeidx]
         self.Launchers[worknodeidx] = Launcher(worknodeinfo=self.WorkFlow.nodes[worknodeidx]['WorkNode'],compnode=self.CompNodes[compnodeidx])
         self.Launchers.get(worknodeidx).SetClient(self.ConnectedClient[compnodeidx])
         logger.info(f'Set worknode-{worknodeidx} to compnode-{compnodeidx}.')
@@ -226,7 +243,7 @@ class CompNodeManager():
             return 'RUNNING'
 
 class Manager(CompNodeManager):
-    def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[],DataPadPath='.'):
+    def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[],DataPadPath='.',pos={}):
         r'''
 
         :param workjson: json represented the work flow
@@ -240,6 +257,7 @@ class Manager(CompNodeManager):
         '''
         self.workjson = workjson
         self.workdict = workdict
+        self.pos = pos
         if self.workjson is None and self.workdict is None:
             logger.error('Please offer your work json or work dictory.')
         if self.workdict is None:
@@ -327,9 +345,8 @@ class Manager(CompNodeManager):
                 #print((self.WorkFlow.nodes[idx]['WorkNode']).state)
                 if (self.WorkFlow.nodes[idx]['WorkNode']).state == 'COMPLETE':
                     self.CompleteWorkSet.add(idx)
-
         logger.info(f'The follow works have complete: {self.CompleteWorkSet}.')
-        launchpad = set()
+        readypad = set()
         for idxs in launch_paths:
             for idx in idxs:
                 if idx in self.CompleteWorkSet:
@@ -339,51 +356,93 @@ class Manager(CompNodeManager):
                 parents = digraph[idx]['parents']
                 children = digraph[idx]['children']
                 if parents == []:
-                    launchpad.add(idx)
+                    readypad.add(idx)
                     continue
                 isready = 1
                 for pre in parents:
                     if (self.WorkFlow.nodes[pre]['WorkNode']).state != 'COMPLETE':
                         isready = 0
                 if isready:
-                    launchpad.add(idx)
+                    readypad.add(idx)
+
         WorkIsDone = 0
-        if launchpad == set():
+        if readypad == set():
             WorkIsDone = 1
-            self.LaunchPad = launchpad
+            self.LaunchPad = readypad
             return WorkIsDone
-        self.LaunchPad = launchpad
-        self.Update(launchpad,'READY') # update for state: 'ALIVE' -> 'READY'
-        self.DataBase.dump(to_dir=self.DataPadPath)
+        self.ReadyPad = readypad
+        self.Update(readypad,'READY') # update for state: 'ALIVE' -> 'READY'
+        self.DataBase.dump(to_dir=self.DataPadPath,pos=self.pos)
         return WorkIsDone
 
     def AllocateResources(self):
         r'''
         ## this method is used to Allocate the available resources to the specific Node
+        ## need to be improved: give an algorithm to determine the mapping between compnode and worknode
         :return:
         '''
+        n_connected = len(self.ConnectedNodesList)
+        CNodesList = self.ConnectedNodesList
+        n_ready = len(self.ReadyPad)
         DressedWNodes = []
+        count_comp = 0
+        getDress = set()
+        for workidx in self.ReadyPad:
+            if count_comp == n_connected:
+                DressedWNodes.append(getDress)
+                count_comp = 0
+                getDress = set()
+            CNodeidx = CNodesList[count_comp]
+            self.SetLaunch(workidx,CNodeidx)
+            getDress.add(workidx)
+            count_comp +=1
+        DressedWNodes.append(getDress)
         self.DressedWNodes = DressedWNodes
         return DressedWNodes
 
-    def LaunchCNodes(self):
+
+    def LaunchCNodes(self,c=0):
         r'''
         ## all things is ready, just run worknode in the compute node.
         ## is connect?
+        ### parallel running
         :return:
         '''
-        self.Update(self.LaunchPad,'RUNNING') # update for state: 'READY' -> 'RUNNING'
-        self.DataBase.dump()
+        self.RunningProcess = []
+
+        for dressednodes in self.DressedWNodes:
+            for dressednode in dressednodes:
+                if self.Launchers.get(dressednode).Client.get_transport() is None:
+                    self.ConnectNode(self.WorkFlow.nodes[dressednode]['CompNode'].nodename)
+                t = threading.Thread(target=process_task,args=(self.Launchers.get(dressednode),))
+                if not hasattr(self,'RunningThreading'):
+                    self.RunningThreading = {}
+                self.RunningThreading[dressednode] = t
+                t.start()
+            self.Update(dressednodes,'RUNNING') # update for state: 'READY' -> 'RUNNING'
+            self.DataBase.dump(to_dir=self.DataPadPath,filename=f'iter_{c}',pos=self.pos)
+            [self.RunningThreading[t].join() for t in self.RunningThreading]
+        for dressednodes in self.DressedWNodes:
+            for dressednode in dressednodes:
+                if self.GetRunSTATE(dressednode):
+                    logger.info(f'WorkNode {dressednode} has done.')
+                    self.Update({dressednode,},'COMPLETE')
+                else:
+                    logger.warning(f'WorkNode {dressednode} has failed. Turn to ERROR detour.')
+                    ## detected the ERROR
         return
 
     def RunWorkFlow(self):
         WorkIsDone = self.ScanWorkFlow()
         if WorkIsDone:
             return
+        c = 0
         while not WorkIsDone:
             self.AllocateResources()
-            self.LaunchCNodes()
+            self.LaunchCNodes(c)
             WorkIsDone = self.ScanWorkFlow()
+            c+=1
+        self.ScanWorkFlow()
         return
 
 if __name__ == '__main__':
@@ -391,38 +450,50 @@ if __name__ == '__main__':
                    "RunScript": 'gmx mdrun -deffnm $$input[0]$$ -v -c $$output[0]$$ -ntmpi 1 -ntomp 12 -gpu_id 3','name':1}
                ,2:{"state":"ALIVE","input":"some files","output":"some files","idx":2,"link":["1->2",],"RunScript": 'echo hello_world','name':1}}
     nlist = [
-                {'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
-                {'nodename':'node2','username':'shirui','hostname':'tycs.nsccty.com','port':65091,'key':None,'pkey':'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0108162129_rsa.txt'},
+                {'nodename':'node1','nodeidx':0,'username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
+                {'nodename':'node2','nodeidx':1,'username':'shirui','hostname':'10.10.2.125','port':22,'key':'tony9527','pkey':None},
+                #{'nodename': 'node3', 'username': 'lmy', 'hostname': '10.10.2.144', 'port': 22, 'key': 'tony9527','pkey': None},
                 ]
     ## test for ScanWorkFlow
     workdict = {
-        0: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 0, "idx": 0, "link": ["0->1", ]},
-        1: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 1, "idx": 1, "link": ["1->2", "1->6"]},
-        2: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 2, "idx": 2, "link": ["2->3", ]},
-        3: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 3, "idx": 3, "link": ["3->4", ]},
-        4: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 4, "idx": 4, "link": ["4->5", ]},
-        5: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 5, "idx": 5, "link": []},
-        6: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 6, "idx": 6, "link": ["6->7", ]},
-        7: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 7, "idx": 7, "link": ["7->8", "7->9"]},
-        8: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 8, "idx": 8, "link": []},
-        9: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 9, "idx": 9, "link": ["9->10", ]},
-        10: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 10, "idx": 10, "link": []},
-        11: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 11, "idx": 11, "link": ["11->12", ]},
-        12: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 12, "idx": 12, "link": ["12->13", ]},
-        13: {"state": "COMPLETE", "input": ["~", ], "output": ["~", ], "RunScript": '~', 'name': 13, "idx": 13, "link": ["13->7"]},
+        0: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 0, "idx": 0, "link": ["0->1", ]},
+        1: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 1, "idx": 1, "link": ["1->2", "1->6"]},
+        2: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 2, "idx": 2, "link": ["2->3", ]},
+        3: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 3, "idx": 3, "link": ["3->4", ]},
+        4: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 4, "idx": 4, "link": ["4->5", ]},
+        5: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 5, "idx": 5, "link": []},
+        6: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 6, "idx": 6, "link": ["6->7", ]},
+        7: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 7, "idx": 7, "link": ["7->8", "7->9"]},
+        8: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 8, "idx": 8, "link": []},
+        9: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 9, "idx": 9, "link": ["9->10", ]},
+        10: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 10, "idx": 10, "link": []},
+        11: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 11, "idx": 11, "link": ["11->12", ]},
+        12: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 12, "idx": 12, "link": ["12->13", ]},
+        13: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 13, "idx": 13, "link": ["13->7","13->14"]},
+        14: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 14, "idx": 14,"link": ["14->15"]},
+        15: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 15, "idx": 15,"link": []},
 
     }
-    m1 = Manager(workdict=workdict,CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase')
-
-    m1.LogginProp()
+    from numpy import array
+    pos = {0: array([-0.01556164, -0.39016557]), 1: array([ 0.05592629, -0.2977942 ]), 2: array([ 0.24521475, -0.70501558]),
+           6: array([-0.14224136,  0.10448954]), 3: array([ 0.46041194, -0.74884297]), 4: array([ 0.54820092, -0.67908047]),
+           5: array([ 0.67160197, -0.80283368]), 7: array([-0.03955893,  0.14293245]), 8: array([0.77640657, 0.5552483 ]),
+           9: array([-0.86145354, -0.26950821]), 10: array([-1.        , -0.34972645]), 11: array([0.0465538 , 0.58875247]),
+           12: array([-0.05851324,  0.51106746]), 13: array([-0.14319196,  0.51353081]), 14: array([-0.20726865,  0.88439932]),
+           15: array([-0.33652693,  0.94254677])}
+    m = Manager(workdict=workdict,CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase',pos=pos)
+    m.LogginProp()
     #m1.ConnectNode('node1')
-    m1.JSONToWorkFlow()
-    m1.ScanWorkFlow()
-    #worknode = m1.WorkFlow.nodes[1]['WorkNode']
-    #print(worknode.state)
-    #m1.SetLaunch(1,0)
-    #m1.RunLauncher(1,block=1)
+    m.ConnectNodeTest(close=False)
+    #m.ConnectNode('node1')
+    m.JSONToWorkFlow()
+    m.RunWorkFlow()
+    #m.ScanWorkFlow()
+    #m.AllocateResources()
+    #print(m.DressedWNodes)
+    #m.LaunchCNodes()
+    #m.Launchers.get(8).RunWorkNode()
+    #m.Launchers.get(8).RunningDetect()
+    #print(m.Launchers.get(8).stdout)
+    #print(m.Launchers.get(9).stdout)
 
-    #worknode.UnifyRunScript()
-    #print(worknode.RunScript)
-    #print(m1.CompNodes)

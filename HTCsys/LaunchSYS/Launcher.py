@@ -63,7 +63,7 @@ class Launcher():
 
     def SetClient(self,client:paramiko.SSHClient):
         self.Client = client
-        logger.info(f'Has set client for {self.nodename}.')
+        #logger.info(f'Has set client for {self.nodename}.')
     def GetAbsPath(self,mode='cluster'):
         r'''
         only linux system, specific the infrastructure.
