@@ -301,7 +301,6 @@ class Manager(CompNodeManager):
                     kid, parent = e.split(axe)
                 G_work.add_edge(int(parent),int(kid))
         self.WorkFlow = G_work
-
         return G_work
 
 
@@ -364,11 +363,11 @@ class Manager(CompNodeManager):
                         isready = 0
                 if isready:
                     readypad.add(idx)
-
         WorkIsDone = 0
         if readypad == set():
             WorkIsDone = 1
             self.LaunchPad = readypad
+            self.DataBase.dump(to_dir=self.DataPadPath,pos=self.pos)
             return WorkIsDone
         self.ReadyPad = readypad
         self.Update(readypad,'READY') # update for state: 'ALIVE' -> 'READY'
@@ -452,35 +451,35 @@ if __name__ == '__main__':
     nlist = [
                 {'nodename':'node1','nodeidx':0,'username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
                 {'nodename':'node2','nodeidx':1,'username':'shirui','hostname':'10.10.2.125','port':22,'key':'tony9527','pkey':None},
-                #{'nodename': 'node3', 'username': 'lmy', 'hostname': '10.10.2.144', 'port': 22, 'key': 'tony9527','pkey': None},
+                {'nodename': 'node3', 'username': 'lmy', 'hostname': '10.10.2.144', 'port': 22, 'key': 'tony9527','pkey': None},
                 ]
     ## test for ScanWorkFlow
     workdict = {
-        0: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 0, "idx": 0, "link": ["0->1", ]},
-        1: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 1, "idx": 1, "link": ["1->2", "1->6"]},
-        2: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 2, "idx": 2, "link": ["2->3", ]},
-        3: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 3, "idx": 3, "link": ["3->4", ]},
-        4: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 4, "idx": 4, "link": ["4->5", ]},
-        5: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 5, "idx": 5, "link": []},
-        6: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 6, "idx": 6, "link": ["6->7", ]},
-        7: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 7, "idx": 7, "link": ["7->8", "7->9"]},
-        8: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 8, "idx": 8, "link": []},
-        9: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 9, "idx": 9, "link": ["9->10", ]},
-        10: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 10, "idx": 10, "link": []},
-        11: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 11, "idx": 11, "link": ["11->12", ]},
-        12: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 12, "idx": 12, "link": ["12->13", ]},
-        13: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 13, "idx": 13, "link": ["13->7","13->14"]},
-        14: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 14, "idx": 14,"link": ["14->15"]},
-        15: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'sleep 1;ls', 'name': 15, "idx": 15,"link": []},
+        0:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 0, "idx": 0, "link": ["0->1", ]},
+        1:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 1, "idx": 1, "link": ["1->2", "1->6"]},
+        2:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 2, "idx": 2, "link": ["2->3", ]},
+        3:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 3, "idx": 3, "link": ["3->4", ]},
+        4:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 4, "idx": 4, "link": ["4->5", ]},
+        5:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 5, "idx": 5, "link": []},
+        6:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 6, "idx": 6, "link": ["6->7", ]},
+        7:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 7, "idx": 7, "link": ["7->8", "7->9"]},
+        8:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 8, "idx": 8, "link": []},
+        9:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 9, "idx": 9, "link": ["9->10", ]},
+        10: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 10, "idx": 10, "link": []},
+        11: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 11, "idx": 11, "link": ["11->12", ]},
+        12: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 12, "idx": 12, "link": ["12->13", ]},
+        13: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 13, "idx": 13, "link": ["13->7","13->14"]},
+        14: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 14, "idx": 14,"link": ["14->15"]},
+        15: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 15, "idx": 15,"link": []},
 
     }
     from numpy import array
-    pos = {0: array([-0.01556164, -0.39016557]), 1: array([ 0.05592629, -0.2977942 ]), 2: array([ 0.24521475, -0.70501558]),
-           6: array([-0.14224136,  0.10448954]), 3: array([ 0.46041194, -0.74884297]), 4: array([ 0.54820092, -0.67908047]),
-           5: array([ 0.67160197, -0.80283368]), 7: array([-0.03955893,  0.14293245]), 8: array([0.77640657, 0.5552483 ]),
-           9: array([-0.86145354, -0.26950821]), 10: array([-1.        , -0.34972645]), 11: array([0.0465538 , 0.58875247]),
-           12: array([-0.05851324,  0.51106746]), 13: array([-0.14319196,  0.51353081]), 14: array([-0.20726865,  0.88439932]),
-           15: array([-0.33652693,  0.94254677])}
+    pos = {0: array([1, 5]), 1: array([ 1, 4 ]), 2: array([ 0, 3]),
+           6: array([2,  3]), 3: array([ 0, 2]), 4: array([ 1, 1]),
+           5: array([ 1, 0]), 7: array([3,  2]), 8: array([2, 1 ]),
+           9: array([4, 1]), 10: array([4 , 0]), 11: array([4 , 5]),
+           12: array([4, 4]), 13: array([4, 3]), 14: array([5,  2]),
+           15: array([5, 1])}
     m = Manager(workdict=workdict,CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase',pos=pos)
     m.LogginProp()
     #m1.ConnectNode('node1')
@@ -488,6 +487,8 @@ if __name__ == '__main__':
     #m.ConnectNode('node1')
     m.JSONToWorkFlow()
     m.RunWorkFlow()
+    for l in m.Launchers:
+        print(m.Launchers[l].stdout)
     #m.ScanWorkFlow()
     #m.AllocateResources()
     #print(m.DressedWNodes)

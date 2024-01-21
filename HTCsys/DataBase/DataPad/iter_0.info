@@ -9,7 +9,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "0->1"
         ],
@@ -26,7 +26,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "1->2",
             "1->6"
@@ -44,7 +44,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "2->3"
         ],
@@ -61,7 +61,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "6->7"
         ],
@@ -78,7 +78,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "3->4"
         ],
@@ -95,7 +95,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "4->5"
         ],
@@ -112,7 +112,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [],
         "pid_in_CNode": 0,
         "cwd": "~"
@@ -127,7 +127,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "7->8",
             "7->9"
@@ -145,7 +145,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [],
         "pid_in_CNode": 0,
         "cwd": "~"
@@ -160,7 +160,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "9->10"
         ],
@@ -177,7 +177,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [],
         "pid_in_CNode": 0,
         "cwd": "~"
@@ -192,7 +192,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "11->12"
         ],
@@ -209,7 +209,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "12->13"
         ],
@@ -226,7 +226,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "13->7",
             "13->14"
@@ -244,7 +244,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [
             "14->15"
         ],
@@ -261,7 +261,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "sleep 1;ls",
+        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
         "link": [],
         "pid_in_CNode": 0,
         "cwd": "~"

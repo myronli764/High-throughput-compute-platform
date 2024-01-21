@@ -1,3 +1,4 @@
+import json
 import random
 from typing import List, Dict
 from utils.logger import logger
@@ -43,7 +44,7 @@ class CompNode():
             logger.warning('No nodeidx, set to random idx %d' % self.nodeidx)
         if compnode.get('nodename') is None:
             self.nodename = f'node-{uuid.uuid4()}'
-        if compnode.get('username' is None):
+        if compnode.get('username') is None:
             self.username = ''
             logger.error('No username.')
             raise
@@ -74,6 +75,14 @@ class CompNode():
         attrs = ['nodeidx','nodename','username','hostname','port','key','pkey']
         return "CompNode(%s,%s,%s,%s,%s,%s,%s)\n" % tuple([f'{k}={self.__getattribute__(k)}' for k in attrs])
 
+class Logger():
+    def __init__(self,NodeInfo:Dict = {},period:str = '10',):
+        self.WorkNodeInfo = WorkInfo(NodeInfo['WorkNode'])
+        self.CompNodeInfo = CompNode(NodeInfo['CompNode'])
+        self.period = period
+    def __repr__(self):
+        return "Logger(%s,%s)\n" % (f'WorkNodeInfo={self.WorkNodeInfo.__repr__()}',f'period={self.period}')
+
 
 if __name__ == '__main__':
     workinfo = WorkInfo({"state":"ALIVE","input":["zxz",],"output":"some files","idx":1,"link":["1->2",],
@@ -82,3 +91,8 @@ if __name__ == '__main__':
     print(workinfo.__repr__())
     compnode = CompNode({'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527'})
     print(compnode.__repr__())
+    Log = Logger(NodeInfo={'WorkNode':{"state":"ALIVE","input":["zxz",],"output":"some files","idx":1,"link":["1->2",],
+                    "RunScript":'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3',
+                    "pid_in_CNode":0,"cwd":'/home','name':1},
+                           'CompNode':{'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527'}})
+    print(Log.__repr__())
