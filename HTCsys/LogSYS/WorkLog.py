@@ -180,8 +180,8 @@ if __name__ == '__main__':
     from utils.Staff import WorkInfo,CompNode
     Log = Logger(NodeInfo={'WorkNode':{"state":"ALIVE","input":["test",'0'],"output":['test.gro'],"idx":1,"link":["1->2",],
                     "RunScript":'gmx mdrun -deffnm $$input[0]$$ -v -c $$output[0]$$ -ntmpi 1 -ntomp 12 -gpu_id $$input[1]$$',
-                    "pid_in_CNode":39399,"cwd":'/home/shirui/lmy/test/Run_Data/trial/test','name':1},
-                           'CompNode':{'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527'}})
+                    "pid_in_CNode":39399,"cwd":'/home/myron/test','name':1},
+                           'CompNode':{'nodename':'node1','username':'myron','hostname':'0.0.0.0','port':22,'key':'myronli'}})
     pulselog = Pulse(Log=Log)
     pulselog.set_period(2)
     pulselog.SetupLog()
