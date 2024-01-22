@@ -232,8 +232,3 @@ if __name__ == '__main__':
     Man.WorkFlowFromDataBase(wfdb)
     wfdb2 = Man.WorkFlowToDataBase()
     print(Man.WorkFlow.nodes[1]['WorkNode'].state)
-    from LaunchSYS.Launcher import Launcher
-    #l = Launcher(wn1,{'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None})
-    #l.STATEToRUNING()
-    #print(Man.WorkFlow.nodes[1]['WorkNode'].state)
-
