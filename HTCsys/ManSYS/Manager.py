@@ -2,12 +2,13 @@ import os.path
 import threading
 import paramiko
 from utils.logger import logger
-from utils.Staff import WorkInfo,CompNode
+from utils.Staff import WorkInfo,CompNode,Logger
 from typing import List, Tuple, Union, Dict
 import json
 import networkx as nx
 from DataBase.database import  WorkFlowDataBase, WorkNode, WorkFlow
 from LaunchSYS.Launcher import Launcher
+from LogSYS.WorkLog import *
 import numpy as np
 
 def dfs(G:nx.DiGraph,start,visited=None):
@@ -71,6 +72,10 @@ def process_task(launcher:Launcher,mode='cluster',block=1):
     launcher.RunningDetect()
     return
 
+def process_logtask(Analyzer:Analyze):
+    Analyzer.SetupLog()
+    return
+
 class Adapter():
     def __init__(self,scheduling):
         self.ScheduleSystem = scheduling
@@ -84,6 +89,7 @@ class Adapter():
             return script
 
 #def WorknodeToInfo():
+
 
 class CompNodeManager():
     r'''
@@ -100,8 +106,7 @@ class CompNodeManager():
     >> m.CloseNode('my_pc')
     '''
 
-    def set_Log(self):
-        return
+
 
     ## set a process to get log data from nodes
 
@@ -277,6 +282,8 @@ class Manager(CompNodeManager):
             os.mkdir(databasepath)
         self.DataPadPath = databasepath
         self.stat = {}## {'workflow':,'database':,'launcher':}
+        self.Loggers = {}
+        self.is_log = 0
 
 
     def addWorkNode(self,workdict):
@@ -393,6 +400,7 @@ class Manager(CompNodeManager):
                 getDress = set()
             CNodeidx = CNodesList[count_comp]
             self.SetLaunch(workidx,CNodeidx)
+            self.set_PulseLog(workidx)
             getDress.add(workidx)
             count_comp +=1
         DressedWNodes.append(getDress)
@@ -407,13 +415,18 @@ class Manager(CompNodeManager):
         ### parallel running
         :return:
         '''
-        self.RunningProcess = []
-
         for dressednodes in self.DressedWNodes:
             for dressednode in dressednodes:
                 if self.Launchers.get(dressednode).Client.get_transport() is None:
                     self.ConnectNode(self.WorkFlow.nodes[dressednode]['CompNode'].nodename)
                 t = threading.Thread(target=process_task,args=(self.Launchers.get(dressednode),))
+                if self.Loggers.get(dressednode) is not None:
+                    t0 = threading.Thread(target=process_logtask,args=(self.Loggers.get(dressednode),))
+                    if not hasattr(self,'RunningLogThreading'):
+                        self.RunningLogThreading = {}
+                        self.is_log = 1
+                    self.RunningLogThreading[dressednode] = t0
+                    t0.start()
                 if not hasattr(self,'RunningThreading'):
                     self.RunningThreading = {}
                 self.RunningThreading[dressednode] = t
@@ -421,6 +434,8 @@ class Manager(CompNodeManager):
             self.Update(dressednodes,'RUNNING') # update for state: 'READY' -> 'RUNNING'
             self.DataBase.dump(to_dir=self.DataPadPath,filename=f'iter_{c}',pos=self.pos)
             [self.RunningThreading[t].join() for t in self.RunningThreading]
+            if self.is_log:
+                [self.RunningLogThreading[t].join() for t in self.RunningLogThreading]
         for dressednodes in self.DressedWNodes:
             for dressednode in dressednodes:
                 if self.GetRunSTATE(dressednode):
@@ -444,6 +459,23 @@ class Manager(CompNodeManager):
         self.ScanWorkFlow()
         return
 
+    def set_PulseLog(self,worknodeidx):
+        Log = Logger(dict(WorkNode=self.WorkFlow.nodes[worknodeidx]['WorkNode'],CompNode=self.WorkFlow.nodes[worknodeidx]['CompNode']))
+        self.Loggers[worknodeidx] = Pulse(Log=Log)
+        self.WorkFlow.nodes[worknodeidx]['Logger'] = self.Loggers[worknodeidx]
+        logger.info(f'Set a pulse Logger to worknode {worknodeidx}')
+        return
+
+    def set_analyze(self,worknodeidx):
+        if not hasattr(self,'Loggers') :
+            self.Loggers = {}
+        self.Loggers[worknodeidx] = Logger(dict(WorkNode=self.WorkFlow.nodes[worknodeidx]['WorkNode'],CompNode=self.WorkFlow.nodes[worknodeidx]['CompNode']))
+        self.WorkFlow.nodes[worknodeidx]['Logger'] = customlog(Log=self.Loggers[worknodeidx])
+        logger.info(f'Set a analyzer {self.WorkFlow.nodes[worknodeidx]["Logger"].name} to worknode {worknodeidx}')
+        return
+
+
+
 if __name__ == '__main__':
     workdict = {1:{"state":"ALIVE","input":["lmy/test/Run_Data/trial/test",],"output":["lmy/test/Run_Data/trial/test.gro",],"idx":1,"link":["1->2",],
                    "RunScript": 'gmx mdrun -deffnm $$input[0]$$ -v -c $$output[0]$$ -ntmpi 1 -ntomp 12 -gpu_id 3','name':1}
@@ -451,7 +483,7 @@ if __name__ == '__main__':
     nlist = [
                 {'nodename':'node1','nodeidx':0,'username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
                 {'nodename':'node2','nodeidx':1,'username':'shirui','hostname':'10.10.2.125','port':22,'key':'tony9527','pkey':None},
-                {'nodename': 'node3', 'username': 'lmy', 'hostname': '10.10.2.144', 'port': 22, 'key': 'tony9527','pkey': None},
+                {'nodename': 'node3','nodeidx':2, 'username': 'lmy', 'hostname': '10.10.2.144', 'port': 22, 'key': 'tony9527','pkey': None},
                 ]
     ## test for ScanWorkFlow
     workdict = {
@@ -486,6 +518,8 @@ if __name__ == '__main__':
     m.ConnectNodeTest(close=False)
     #m.ConnectNode('node1')
     m.JSONToWorkFlow()
+    for n in m.WorkFlow.nodes:
+        print(m.WorkFlow.nodes[n]['WorkNode'].input,m.WorkFlow.nodes[n]['WorkNode'].output)
     m.RunWorkFlow()
     for l in m.Launchers:
         print(m.Launchers[l].stdout)

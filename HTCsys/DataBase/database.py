@@ -10,9 +10,6 @@ import json
 import networkx as nx
 from utils.Staff import WorkInfo
 
-class LogData():
-    def __init__(self,logfile):
-        self.log = logfile
 
 def FindRelation(edges):
     pk_ = []
@@ -40,13 +37,15 @@ class WorkNode():
         '''
         workinfo = WorkInfo(workinfo=workinfo)
         self.name = workinfo.name
+        self.cross_node_input = 0
         for attr in dir(workinfo):
             if attr.startswith('__'):
                 continue
             self.__setattr__(attr,workinfo.__getattribute__(attr))
         if type(self.input) is WorkNode:
             self.input = self.input.output
-
+            self.cross_node_input = 1
+            self.cross_node_idx = self.input.idx
 
     def UnifyRunScript(self):
         logger.info('Unify the RunScript.')
@@ -186,8 +185,7 @@ def WorkFlowTo2DGraph(workflow:WorkFlow,filename='workflow.png',to_dir='.',pos={
     return
 
 class WorkFlowDataBase():
-    def __init__(self ,workflow : nx.Graph,log =None):
-        self.logdata = LogData(log)
+    def __init__(self ,workflow : nx.Graph):
         self.workflow = WorkFlow(workflow)
 
     def dump(self,filename='database',to_dir=None,pos={}):

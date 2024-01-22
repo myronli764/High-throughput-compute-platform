@@ -9,11 +9,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "0->1"
         ],
-        "pid_in_CNode": "20666",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "1": {
@@ -26,12 +26,12 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep 0 | grep -v grep > log.txt",
         "link": [
             "1->2",
             "1->6"
         ],
-        "pid_in_CNode": "20713",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "2": {
@@ -44,11 +44,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "2->3"
         ],
-        "pid_in_CNode": "20760",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "6": {
@@ -61,11 +61,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "6->7"
         ],
-        "pid_in_CNode": "23166",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "3": {
@@ -78,11 +78,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "3->4"
         ],
-        "pid_in_CNode": "20808",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "4": {
@@ -95,11 +95,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "4->5"
         ],
-        "pid_in_CNode": "23308",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "5": {
@@ -127,12 +127,12 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "7->8",
             "7->9"
         ],
-        "pid_in_CNode": "23237",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "8": {
@@ -145,9 +145,9 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [],
-        "pid_in_CNode": "20856",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "9": {
@@ -160,11 +160,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "9->10"
         ],
-        "pid_in_CNode": "2451424548",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "10": {
@@ -192,11 +192,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "11->12"
         ],
-        "pid_in_CNode": "24306",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "12": {
@@ -209,11 +209,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "12->13"
         ],
-        "pid_in_CNode": "24357",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "13": {
@@ -226,12 +226,12 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "13->7",
             "13->14"
         ],
-        "pid_in_CNode": "24407",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "14": {
@@ -244,11 +244,11 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep  | grep -v grep > log.txt",
         "link": [
             "14->15"
         ],
-        "pid_in_CNode": "24464",
+        "pid_in_CNode": "",
         "cwd": "~"
     },
     "15": {
@@ -261,7 +261,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep 0 | grep -v grep > log.txt",
         "link": [],
         "pid_in_CNode": 0,
         "cwd": "~"

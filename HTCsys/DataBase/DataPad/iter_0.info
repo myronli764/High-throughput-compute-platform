@@ -9,7 +9,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep 0 | grep -v grep > log.txt",
         "link": [
             "0->1"
         ],
@@ -192,7 +192,7 @@
         "output": [
             "~"
         ],
-        "RunScript": "mkdir htc_test; cd htc_test; sleep 1;ls ../*",
+        "RunScript": "cd ~; ps -ef | grep 0 | grep -v grep > log.txt",
         "link": [
             "11->12"
         ],

@@ -9,6 +9,8 @@ class WorkInfo():
         all_attr = ['name','idx','input','output','link','RunScript','state','pid_in_CNode','cwd']
         for k,v in workinfo.items():
             self.__setattr__(k,v)
+        if workinfo.get('cwd') is None:
+            self.cwd = '~'
         if workinfo.get('name') is None:
             self.name = uuid.uuid4()
         if workinfo.get('idx') is None:
@@ -27,9 +29,15 @@ class WorkInfo():
             self.state = 'ALIVE'
         if workinfo.get('pid_in_CNode') is None:
             self.pid_in_CNode = 0
-        if workinfo.get('cwd') is None:
-            self.cwd = '~'
-        logger.info('workinfo get.')
+        #unify_input = []
+        #unify_output = []
+        #for i in self.input:
+        #    unify_input.append(f'{self.cwd}/{i}')
+        #for i in self.output:
+        #    unify_output.append(f'{self.cwd}/{i}')
+        #self.input = unify_input
+        #self.output = unify_output
+        #logger.info('workinfo get.')
     def __repr__(self) -> str:
         attrs = ['name', 'idx', 'input', 'output', 'link', 'RunScript', 'state', 'pid_in_CNode', 'cwd']
         return "WorkInfo(%s,%s,%s,%s,%s,%s,%s,%s,%s)\n" % tuple([f'{k}={self.__getattribute__(k)}' for k in attrs])
@@ -76,10 +84,12 @@ class CompNode():
         return "CompNode(%s,%s,%s,%s,%s,%s,%s)\n" % tuple([f'{k}={self.__getattribute__(k)}' for k in attrs])
 
 class Logger():
-    def __init__(self,NodeInfo:Dict = {},period:str = '10',):
-        self.WorkNodeInfo = WorkInfo(NodeInfo['WorkNode'])
-        self.CompNodeInfo = CompNode(NodeInfo['CompNode'])
+    def __init__(self,NodeInfo:Dict = {},period:int = 10,):
+        self.WorkNodeInfo = NodeInfo['WorkNode']
+        self.CompNodeInfo = NodeInfo['CompNode']
         self.period = period
+        self.input = ''
+        self.output = ''
     def __repr__(self):
         return "Logger(%s,%s)\n" % (f'WorkNodeInfo={self.WorkNodeInfo.__repr__()}',f'period={self.period}')
 
@@ -91,8 +101,6 @@ if __name__ == '__main__':
     print(workinfo.__repr__())
     compnode = CompNode({'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527'})
     print(compnode.__repr__())
-    Log = Logger(NodeInfo={'WorkNode':{"state":"ALIVE","input":["zxz",],"output":"some files","idx":1,"link":["1->2",],
-                    "RunScript":'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3',
-                    "pid_in_CNode":0,"cwd":'/home','name':1},
-                           'CompNode':{'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527'}})
+    Log = Logger(NodeInfo=dict(WorkNode=workinfo,CompNode=compnode),
+                 )
     print(Log.__repr__())
