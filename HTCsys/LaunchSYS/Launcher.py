@@ -109,9 +109,10 @@ class Launcher():
     def RunWorkNode(self,mode='cluster',block=1):
         logger.info(f'mode = {mode}.')
         if mode == 'cluster':
+            script = f'cd {self.WorkNodeInfo.cwd}; ' + self.WorkNodeInfo.RunScript
             channel1 = self.Client.get_transport().open_session()
             channel1.setblocking(block)
-            channel1.exec_command(self.WorkNodeInfo.RunScript)
+            channel1.exec_command(script)
             self.RunChannel = channel1
             logger.info('get RunChannel to Run the work.')
             pid = "ps -ef | grep '%s' | grep -v grep | awk '{print $2}'" % (self.WorkNodeInfo.RunScript)

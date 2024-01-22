@@ -248,7 +248,7 @@ class CompNodeManager():
             return 'RUNNING'
 
 class Manager(CompNodeManager):
-    def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[],DataPadPath='.',pos={}):
+    def __init__(self,workjson:str = None , workdict : Dict = {}, CompNodesList: List[Dict,]=[],DataPadPath='.',pos={},name='workflow'):
         r'''
 
         :param workjson: json represented the work flow
@@ -260,6 +260,7 @@ class Manager(CompNodeManager):
                 {'nodename':'node2_name','username':'Jack','hostname':'10.10.2.101','key':None,'pkey':'/home/Jack/pub_rsa_key.txt'},
                 ]
         '''
+        self.name = name
         self.workjson = workjson
         self.workdict = workdict
         self.pos = pos
@@ -294,6 +295,8 @@ class Manager(CompNodeManager):
         G_work = nx.DiGraph()
         for n,info in self.workdict.items():
             worknode = WorkNode(info)
+            if worknode.cwd == '~':
+                worknode.cwd = f'~/htcwork_{self.name}/worknode_{n}'
             worknode.UnifyRunScript()
             G_work.add_node(worknode.idx,WorkNode=worknode)
             edges = info['link']
@@ -329,6 +332,29 @@ class Manager(CompNodeManager):
             self.WorkFlow.nodes[idx]['WorkNode'].state = state
             self.DataBase.workflow.WorkGraph.nodes[idx]['WorkNode'].state = state
 
+    def TFileInCNodes(self,origin:int,opath:str,ofile,destination:int,dpath:str,dfile):
+        client_orig = self.ConnectedClient[origin]
+        client_dest = self.ConnectedClient[destination]
+        client_orig: paramiko.SSHClient
+        client_dest: paramiko.SSHClient
+        if isinstance(ofile,list):
+            for o,d in zip(ofile,dfile):
+                stdin, stdout, stderr = client_orig.exec_command(f'cat {opath}/{o}')
+                while not stdout.channel.exec_command():
+                    time.sleep(1)
+                content = stdout.read(1024).decode()
+                stdin, stdout, stderr = client_dest.exec_command(f'echo {content} > {dpath}/{d}')
+                while not stdout.channel.exec_command():
+                    time.sleep(1)
+                content = stdout.read(1024).decode()
+        else:
+            stdin, stdout, stderr = client_orig.exec_command(f'cat {opath}/{ofile}')
+            while not stdout.channel.exec_command():
+                time.sleep(1)
+            content = stdout.read(1024).decode()
+            stdin, stdout, stderr = client_dest.exec_command(f'echo {content} > {dpath}/{dfile}')
+        return
+
     def ScanWorkFlow(self) :
         r'''
         ## this method is used to Scan the WorkFlow Graph, and get a list of 'READY' work, update the database and workflow
@@ -352,7 +378,7 @@ class Manager(CompNodeManager):
                 if (self.WorkFlow.nodes[idx]['WorkNode']).state == 'COMPLETE':
                     self.CompleteWorkSet.add(idx)
         logger.info(f'The follow works have complete: {self.CompleteWorkSet}.')
-        readypad = set()
+        readypad_ = set()
         for idxs in launch_paths:
             for idx in idxs:
                 if idx in self.CompleteWorkSet:
@@ -362,20 +388,21 @@ class Manager(CompNodeManager):
                 parents = digraph[idx]['parents']
                 children = digraph[idx]['children']
                 if parents == []:
-                    readypad.add(idx)
+                    readypad_.add(idx)
                     continue
                 isready = 1
                 for pre in parents:
                     if (self.WorkFlow.nodes[pre]['WorkNode']).state != 'COMPLETE':
                         isready = 0
                 if isready:
-                    readypad.add(idx)
+                    readypad_.add(idx)
         WorkIsDone = 0
-        if readypad == set():
+        if readypad_ == set():
             WorkIsDone = 1
-            self.LaunchPad = readypad
+            self.LaunchPad = readypad_
             self.DataBase.dump(to_dir=self.DataPadPath,pos=self.pos)
             return WorkIsDone
+        readypad = readypad_
         self.ReadyPad = readypad
         self.Update(readypad,'READY') # update for state: 'ALIVE' -> 'READY'
         self.DataBase.dump(to_dir=self.DataPadPath,pos=self.pos)
@@ -394,6 +421,7 @@ class Manager(CompNodeManager):
         count_comp = 0
         getDress = set()
         for workidx in self.ReadyPad:
+        ## set launch and pulselog
             if count_comp == n_connected:
                 DressedWNodes.append(getDress)
                 count_comp = 0
@@ -401,6 +429,27 @@ class Manager(CompNodeManager):
             CNodeidx = CNodesList[count_comp]
             self.SetLaunch(workidx,CNodeidx)
             self.set_PulseLog(workidx)
+        ## get cwd dir
+
+        ## get file
+            if self.WorkFlow.nodes[workidx]['WorkNode'].cross_node_input:
+                cross_worknode_idx = self.WorkFlow.nodes[workidx]['WorkNode'].cross_node_idx
+                if CNodeidx == self.WorkFlow.nodes[cross_worknode_idx]['CompNode'].nodeidx:
+                    input_list = []
+                    for out in self.WorkFlow.nodes[workidx]['WorkNode'].input:
+                        input_list.append(f'{self.WorkFlow.nodes[cross_worknode_idx]["WorkNode"].cwd}/{out}')
+                    self.WorkFlow.nodes[workidx]['WorkNode'].input = input_list
+                else:
+                    cross_CNodeidx = self.WorkFlow.nodes[cross_worknode_idx]['CompNode'].nodeidx
+                    cwd = self.WorkFlow.nodes[workidx]['WorkNode'].cwd
+                    cross_cwd = self.WorkFlow.nodes[cross_worknode_idx]["WorkNode"].cwd
+                    output = self.WorkFlow.nodes[workidx]['WorkNode'].input
+                    self.TFileInCNodes(origin=CNodeidx,destination=cross_CNodeidx,opath=cwd,dpath=cross_cwd,ofile=output,dfile=output)
+                    input_list = []
+                    for out in self.WorkFlow.nodes[workidx]['WorkNode'].input:
+                        input_list.append(f'{self.WorkFlow.nodes[workidx]["WorkNode"].cwd}/{out}')
+                    self.WorkFlow.nodes[workidx]['WorkNode'].input = input_list
+
             getDress.add(workidx)
             count_comp +=1
         DressedWNodes.append(getDress)
@@ -481,9 +530,9 @@ if __name__ == '__main__':
                    "RunScript": 'gmx mdrun -deffnm $$input[0]$$ -v -c $$output[0]$$ -ntmpi 1 -ntomp 12 -gpu_id 3','name':1}
                ,2:{"state":"ALIVE","input":"some files","output":"some files","idx":2,"link":["1->2",],"RunScript": 'echo hello_world','name':1}}
     nlist = [
-                {'nodename':'node1','nodeidx':0,'username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
-                {'nodename':'node2','nodeidx':1,'username':'shirui','hostname':'10.10.2.125','port':22,'key':'tony9527','pkey':None},
-                {'nodename': 'node3','nodeidx':2, 'username': 'lmy', 'hostname': '10.10.2.144', 'port': 22, 'key': 'tony9527','pkey': None},
+                #{'nodename':'node1','nodeidx':0,'username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
+                #{'nodename':'node2','nodeidx':1,'username':'shirui','hostname':'10.10.2.125','port':22,'key':'tony9527','pkey':None},
+                {'nodename': 'node3','nodeidx':2, 'username': 'lmy', 'hostname': '10.10.2.140', 'port': 22, 'key': 'tony9527','pkey': None},
                 ]
     ## test for ScanWorkFlow
     workdict = {

@@ -43,9 +43,9 @@ class WorkNode():
                 continue
             self.__setattr__(attr,workinfo.__getattribute__(attr))
         if type(self.input) is WorkNode:
-            self.input = self.input.output
             self.cross_node_input = 1
             self.cross_node_idx = self.input.idx
+            self.input = self.input.output
 
     def UnifyRunScript(self):
         logger.info('Unify the RunScript.')
@@ -58,6 +58,7 @@ class WorkNode():
                 io_list = [ _ for _ in io_list if _ != '']
                 command_list[pos] = self.__getattribute__(io_list[0])[int(io_list[1])]
         script = ''.join(command_list)
+        #script = f'mkdir {self.cwd}; cd {self.cwd}; ' + script
         logger.info(f'Unify the RunScript [{self.RunScript}] to [{script}].')
         self.RunScript = script
 
