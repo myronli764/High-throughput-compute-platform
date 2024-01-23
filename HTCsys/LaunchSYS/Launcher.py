@@ -30,6 +30,7 @@ class Launcher():
             logger.error(f'there is no work in this compnode')
         if hasattr(self,'nodename') is None:
             raise logger.error(f'WorkNode {self.WorkNodeInfo.name} failed to allocate CompNode.')
+        #print('*'*30,self.WorkNodeInfo.RunScript)
 
     def STATE2ALIVE(self):
         ## return the state, but set by Manager
@@ -109,12 +110,13 @@ class Launcher():
     def RunWorkNode(self,mode='cluster',block=1):
         logger.info(f'mode = {mode}.')
         if mode == 'cluster':
+            #print('-'*80,self.WorkNodeInfo.RunScript)
             script = f'cd {self.WorkNodeInfo.cwd}; ' + self.WorkNodeInfo.RunScript
             channel1 = self.Client.get_transport().open_session()
             channel1.setblocking(block)
             channel1.exec_command(script)
             self.RunChannel = channel1
-            logger.info('get RunChannel to Run the work.')
+            logger.info(f'get RunChannel to Run the work: {self.WorkNodeInfo.RunScript}')
             pid = "ps -ef | grep '%s' | grep -v grep | awk '{print $2}'" % (self.WorkNodeInfo.RunScript)
             channel = self.Client.get_transport().open_session()
             channel.setblocking(block)
@@ -124,6 +126,7 @@ class Launcher():
             pid = pid.replace('\n', '')
             self.WorkNodeInfo.pid_in_CNode = pid
             logger.info(f'get pid {pid} of the work in the Compute Node {self.nodename}.')
+
             ret = [pid,__]
             self.WorkNodeInfo.state = self.STATE2RUNNING()
             return ret
@@ -171,4 +174,42 @@ class Launcher():
         if mode == 'slurm':
             self.Client.exec_command('scancel %s' % self.WorkNodeInfo.pid_in_CNode)
         logger.info(f'Has kill the work in the Compute Node {self.nodename} with pid {self.WorkNodeInfo.pid_in_CNode}.')
+
+if __name__ == '__main__':
+    from ManSYS.Manager import Manager
+    Cnode = {'nodename': 'node1', 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527', 'pkey': None}
+    ## 'gmx grompp -c lmy/test/Run_Data/ini.gro -f lmy/test/Run_Data/trial/trial.mdp -p lmy/test/Run_Data/topol.top -o lmy/test/Run_Data/trial/test -maxwarn 100'
+    ## 'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3'
+    Worknodeinfo = {"state":"ALIVE","input":["zxz",],"output":"some files","idx":1,"link":["1->2",],
+                    "RunScript":'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3',
+                    "pid_in_CNode":0,"cwd":'/home','name':1}
+    Cnode = CompNode(Cnode)
+    Wnode = WorkInfo(Worknodeinfo)
+    launcher = Launcher(worknodeinfo=Wnode,compnode=Cnode)
+    ## test for cluster
+    workdict = {1: {"state": "ALIVE", "input": "some files", "output": "some files", "idx": 1, "link": ["1->2", ],
+                    "RunScript": 'echo hello_world'}
+        , 2: {"state": "ALIVE", "input": "some files", "output": "some files", "idx": 2, "link": ["1->2", ],
+              "RunScript": 'echo hello_world'}}
+    # s = json.dumps(workdict)
+    # print(s)
+    nlist = [
+        {'nodename': 'node1', 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527',
+         'pkey': None},
+        {'nodename': 'node2', 'username': 'shirui', 'hostname': 'tycs.nsccty.com', 'port': 65091, 'key': None,
+         'pkey': 'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0113174144_rsa.txt'},
+    ]
+    m1 = Manager(workdict=workdict, CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase')
+    m1.LogginProp()
+    m1.ConnectNode('node1')
+    launcher.SetClient(m1.ConnectedClient['node1'])
+    #print(launcher.WorkNodeInfo)
+    ret = launcher.RunWorkNode(block=0)
+    print('cwd:',launcher.GetAbsPath())
+    print(launcher.GetRunStat())
+    launcher.STATE2RUNNING()
+    time.sleep(5)
+    launcher.KillRun()
+    launcher.RunningDetect()
+    print(launcher.stdout,ret)
 

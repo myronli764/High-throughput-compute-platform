@@ -96,10 +96,10 @@ class Logger():
 
 if __name__ == '__main__':
     workinfo = WorkInfo({"state":"ALIVE","input":["zxz",],"output":"some files","idx":1,"link":["1->2",],
-                    "RunScript":'gmx mdrun -deffnm myron/test -v -c myron/test/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3',
+                    "RunScript":'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3',
                     "pid_in_CNode":0,"cwd":'/home','name':1})
     print(workinfo.__repr__())
-    compnode = CompNode({'nodename':'node1','username':'myron','hostname':'0.0.0.0','port':22,'key':'myronli'})
+    compnode = CompNode({'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527'})
     print(compnode.__repr__())
     Log = Logger(NodeInfo=dict(WorkNode=workinfo,CompNode=compnode),
                  )

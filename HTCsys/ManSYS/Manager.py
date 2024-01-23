@@ -1,5 +1,7 @@
 import os.path
 import threading
+import time
+import shutil
 import paramiko
 from utils.logger import logger
 from utils.Staff import WorkInfo,CompNode,Logger
@@ -67,12 +69,22 @@ def bfs(G:nx.DiGraph,start,visited=None,visited_path=[]):
 #plt.show()
 #raise
 
-def process_task(launcher:Launcher,mode='cluster',block=1):
-    launcher.RunWorkNode(mode=mode,block=block)
+def process_task(launcher:Launcher,path,mode='cluster',block=1):
+    pid,_ = launcher.RunWorkNode(mode=mode,block=block)
+    #print('+'*100,pid,path)
+    f = open(os.path.join(path,f'{launcher.WorkNodeInfo.name}_pid.txt'),'w')
+    f.write(pid)
+    f.close()
     launcher.RunningDetect()
     return
 
-def process_logtask(Analyzer:Analyze):
+def process_analtask(Analyzer:customlog,input=[],output=[],RunScript='',func=None):
+    Analyzer.set_para(input=input,output=output,RunScript=RunScript,func=func)
+    Analyzer.SetupLog()
+    return
+
+def process_logtask(Analyzer:Analyze,pid):
+    Analyzer.set_para(input=[pid])
     Analyzer.SetupLog()
     return
 
@@ -235,8 +247,8 @@ class CompNodeManager():
     def RunLauncher(self,worknodeidx:int = None,block=1):
         self.Launchers.get(worknodeidx).RunWorkNode()
         self.WorkFlow.nodes[worknodeidx]['WorkNode'].state = self.Launchers.get(worknodeidx).STATE2RUNNING()
-        print(self.WorkFlow.nodes[worknodeidx]['WorkNode'].state)
-        print(self.Launchers.get(worknodeidx).GetRunStat())
+        #print(self.WorkFlow.nodes[worknodeidx]['WorkNode'].state)
+        #print(self.Launchers.get(worknodeidx).GetRunStat())
         if block:
             self.Launchers.get(worknodeidx).RunningDetect()
         return
@@ -279,12 +291,15 @@ class Manager(CompNodeManager):
         self.ConnectedClient = {}
         self.CompleteWorkSet = set()
         databasepath = os.path.join(DataPadPath,'DataPad')
-        if not os.path.exists(databasepath):
-            os.mkdir(databasepath)
+        if os.path.exists(databasepath):
+            shutil.rmtree(databasepath)
+        os.mkdir(databasepath)
         self.DataPadPath = databasepath
         self.stat = {}## {'workflow':,'database':,'launcher':}
         self.Loggers = {}
+        self.Analyzer = {}
         self.is_log = 0
+        self.is_analyze = 0
 
 
     def addWorkNode(self,workdict):
@@ -298,6 +313,7 @@ class Manager(CompNodeManager):
             if worknode.cwd == '~':
                 worknode.cwd = f'~/htcwork_{self.name}/worknode_{n}'
             worknode.UnifyRunScript()
+            #print('RunScript:',worknode.RunScript)
             G_work.add_node(worknode.idx,WorkNode=worknode)
             edges = info['link']
             for e in edges:
@@ -468,21 +484,38 @@ class Manager(CompNodeManager):
             for dressednode in dressednodes:
                 if self.Launchers.get(dressednode).Client.get_transport() is None:
                     self.ConnectNode(self.WorkFlow.nodes[dressednode]['CompNode'].nodename)
-                t = threading.Thread(target=process_task,args=(self.Launchers.get(dressednode),))
+                t = threading.Thread(target=process_task,args=(self.Launchers.get(dressednode),self.DataPadPath))
+                #time.sleep(3)
+                if not hasattr(self,'RunningThreading'):
+                    self.RunningThreading = {}
+                self.RunningThreading[dressednode] = t
+                t.start()
                 if self.Loggers.get(dressednode) is not None:
-                    t0 = threading.Thread(target=process_logtask,args=(self.Loggers.get(dressednode),))
+                    while not os.path.exists(os.path.join(self.DataPadPath,f'{self.WorkFlow.nodes[dressednode]["WorkNode"].name}_pid.txt')):
+                        pass
+                    f = open(os.path.join(self.DataPadPath,f'{self.WorkFlow.nodes[dressednode]["WorkNode"].name}_pid.txt'),'r')
+                    pid = f.read()
+                    f.close()
+                    #os.rmdir(f'{self.WorkFlow.nodes[dressednode]["WorkNode"].name}_pid.txt')
+                    t0 = threading.Thread(target=process_logtask,args=(self.Loggers.get(dressednode),pid))
                     if not hasattr(self,'RunningLogThreading'):
                         self.RunningLogThreading = {}
                         self.is_log = 1
                     self.RunningLogThreading[dressednode] = t0
                     t0.start()
-                if not hasattr(self,'RunningThreading'):
-                    self.RunningThreading = {}
-                self.RunningThreading[dressednode] = t
-                t.start()
+                ## please do this analyze work if there are more than one analyzer
+                if self.Analyzer.get(dressednode) is not None:
+                    t1 = threading.Thread(target=process_logtask, args=(self.Loggers.get(dressednode)))
+                    if not hasattr(self,'RunningAnalyzeThreading'):
+                        self.RunningAnalyzeThreading = {}
+                        self.is_analyze = 1
+                    self.RunningAnalyzeThreading[dressednode] = t1
+                    t1.start()
             self.Update(dressednodes,'RUNNING') # update for state: 'READY' -> 'RUNNING'
             self.DataBase.dump(to_dir=self.DataPadPath,filename=f'iter_{c}',pos=self.pos)
             [self.RunningThreading[t].join() for t in self.RunningThreading]
+            if self.is_analyze:
+                [self.RunningAnalyzeThreading[t].join() for t in self.RunningAnalyzeThreading]
             if self.is_log:
                 [self.RunningLogThreading[t].join() for t in self.RunningLogThreading]
         for dressednodes in self.DressedWNodes:
@@ -511,17 +544,79 @@ class Manager(CompNodeManager):
     def set_PulseLog(self,worknodeidx):
         Log = Logger(dict(WorkNode=self.WorkFlow.nodes[worknodeidx]['WorkNode'],CompNode=self.WorkFlow.nodes[worknodeidx]['CompNode']))
         self.Loggers[worknodeidx] = Pulse(Log=Log)
-        self.WorkFlow.nodes[worknodeidx]['Logger'] = self.Loggers[worknodeidx]
+        self.WorkFlow.nodes[worknodeidx]['PulseLogger'] = self.Loggers[worknodeidx]
         logger.info(f'Set a pulse Logger to worknode {worknodeidx}')
         return
 
-    def set_analyze(self,worknodeidx):
-        if not hasattr(self,'Loggers') :
-            self.Loggers = {}
-        self.Loggers[worknodeidx] = Logger(dict(WorkNode=self.WorkFlow.nodes[worknodeidx]['WorkNode'],CompNode=self.WorkFlow.nodes[worknodeidx]['CompNode']))
-        self.WorkFlow.nodes[worknodeidx]['Logger'] = customlog(Log=self.Loggers[worknodeidx])
-        logger.info(f'Set a analyzer {self.WorkFlow.nodes[worknodeidx]["Logger"].name} to worknode {worknodeidx}')
+    def set_analyze(self,worknodeidx,name,input=[],output=[],RunScript='',func=None):
+        #self.is_analyze = 1
+        self.Analyzer[worknodeidx] = Logger(dict(WorkNode=self.WorkFlow.nodes[worknodeidx]['WorkNode'],CompNode=self.WorkFlow.nodes[worknodeidx]['CompNode']))
+        self.WorkFlow.nodes[worknodeidx]['Analyzers'] = customlog(Log=self.Loggers[worknodeidx],name=name)
+        logger.info(f'Set a analyzer {self.WorkFlow.nodes[worknodeidx]["Analyze"].name} to worknode {worknodeidx}')
         return
 
 
+
+if __name__ == '__main__':
+    #import pkg_resources
+    #ipackage = pkg_resources.working_set
+    #f = open('requirements.txt','w')
+    #for p in ipackage:
+    #    f.write(f'{p.key}=={p.version}\n')
+    #f.close()
+    #raise
+    workdict = {1:{"state":"ALIVE","input":["lmy/test/Run_Data/trial/test",],"output":["lmy/test/Run_Data/trial/test.gro",],"idx":1,"link":["1->2",],
+                   "RunScript": 'gmx mdrun -deffnm $$input[0]$$ -v -c $$output[0]$$ -ntmpi 1 -ntomp 12 -gpu_id 3','name':1}
+               ,2:{"state":"ALIVE","input":"some files","output":"some files","idx":2,"link":["1->2",],"RunScript": 'echo hello_world','name':1}}
+    nlist = [
+                #{'nodename':'node1','nodeidx':0,'username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None},
+                #{'nodename':'node2','nodeidx':1,'username':'shirui','hostname':'10.10.2.125','port':22,'key':'tony9527','pkey':None},
+                {'nodename': 'node3','nodeidx':2, 'username': 'lmy', 'hostname': '10.10.2.140', 'port': 22, 'key': 'tony9527','pkey': None},
+                ]
+    ## test for ScanWorkFlow
+    workdict = {
+        0:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'cat fuckkk.txt', 'name': 0, "idx": 0, "link": [ ]},
+        #1:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 1, "idx": 1, "link": ["1->2", "1->6"]},
+        #2:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 2, "idx": 2, "link": ["2->3", ]},
+        #3:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 3, "idx": 3, "link": ["3->4", ]},
+        #4:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 4, "idx": 4, "link": ["4->5", ]},
+        #5:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 5, "idx": 5, "link": []},
+        #6:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 6, "idx": 6, "link": ["6->7", ]},
+        #7:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 7, "idx": 7, "link": ["7->8", "7->9"]},
+        #8:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 8, "idx": 8, "link": []},
+        #9:  {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 9, "idx": 9, "link": ["9->10", ]},
+        #10: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 10, "idx": 10, "link": []},
+        #11: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 11, "idx": 11, "link": ["11->12", ]},
+        #12: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 12, "idx": 12, "link": ["12->13", ]},
+        #13: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 13, "idx": 13, "link": ["13->7","13->14"]},
+        #14: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 14, "idx": 14,"link": ["14->15"]},
+        #15: {"state": "ALIVE", "input": ["~", ], "output": ["~", ], "RunScript": 'mkdir htc_test; cd htc_test; sleep 1;ls ../*', 'name': 15, "idx": 15,"link": []},
+
+    }
+    from numpy import array
+    pos = {0: array([1, 5]), 1: array([ 1, 4 ]), 2: array([ 0, 3]),
+           6: array([2,  3]), 3: array([ 0, 2]), 4: array([ 1, 1]),
+           5: array([ 1, 0]), 7: array([3,  2]), 8: array([2, 1 ]),
+           9: array([4, 1]), 10: array([4 , 0]), 11: array([4 , 5]),
+           12: array([4, 4]), 13: array([4, 3]), 14: array([5,  2]),
+           15: array([5, 1])}
+    m = Manager(workdict=workdict,CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase')#,pos=pos)
+    m.LogginProp()
+    #m1.ConnectNode('node1')
+    m.ConnectNodeTest(close=False)
+    #m.ConnectNode('node1')
+    m.JSONToWorkFlow()
+    for n in m.WorkFlow.nodes:
+        print(m.WorkFlow.nodes[n]['WorkNode'].input,m.WorkFlow.nodes[n]['WorkNode'].output)
+    m.RunWorkFlow()
+    for l in m.Launchers:
+        print(m.Launchers[l].stdout)
+    #m.ScanWorkFlow()
+    #m.AllocateResources()
+    #print(m.DressedWNodes)
+    #m.LaunchCNodes()
+    #m.Launchers.get(8).RunWorkNode()
+    #m.Launchers.get(8).RunningDetect()
+    #print(m.Launchers.get(8).stdout)
+    #print(m.Launchers.get(9).stdout)
 

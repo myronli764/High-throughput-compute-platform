@@ -1,0 +1,50 @@
+{
+    "0": {
+        "name": "ml_pi_1776_1000",
+        "idx": 0,
+        "state": "RUNNING",
+        "input": [
+            "/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py",
+            "1000KAB.npy",
+            "1000KAA.npy",
+            "1000KBB.npy"
+        ],
+        "output": [],
+        "RunScript": "python /home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py 1000KAB.npy 1000KAA.npy 1000KBB.npy ",
+        "link": [],
+        "pid_in_CNode": "14062",
+        "cwd": "/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ml_pi_1776/Run_Data/Run"
+    },
+    "1": {
+        "name": "ml_pi_1776_900",
+        "idx": 1,
+        "state": "RUNNING",
+        "input": [
+            "/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py",
+            "900KAB.npy",
+            "900KAA.npy",
+            "900KBB.npy"
+        ],
+        "output": [],
+        "RunScript": "python /home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py 900KAB.npy 900KAA.npy 900KBB.npy ",
+        "link": [],
+        "pid_in_CNode": "14284",
+        "cwd": "/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ml_pi_1776/Run_Data/Run"
+    },
+    "2": {
+        "name": "ml_pi_1776_800",
+        "idx": 2,
+        "state": "RUNNING",
+        "input": [
+            "/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py",
+            "800KAB.npy",
+            "800KAA.npy",
+            "800KBB.npy"
+        ],
+        "output": [],
+        "RunScript": "python /home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py 800KAB.npy 800KAA.npy 800KBB.npy ",
+        "link": [],
+        "pid_in_CNode": "14497",
+        "cwd": "/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ml_pi_1776/Run_Data/Run"
+    }
+}
