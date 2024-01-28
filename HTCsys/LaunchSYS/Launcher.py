@@ -175,41 +175,4 @@ class Launcher():
             self.Client.exec_command('scancel %s' % self.WorkNodeInfo.pid_in_CNode)
         logger.info(f'Has kill the work in the Compute Node {self.nodename} with pid {self.WorkNodeInfo.pid_in_CNode}.')
 
-if __name__ == '__main__':
-    from ManSYS.Manager import Manager
-    Cnode = {'nodename': 'node1', 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527', 'pkey': None}
-    ## 'gmx grompp -c lmy/test/Run_Data/ini.gro -f lmy/test/Run_Data/trial/trial.mdp -p lmy/test/Run_Data/topol.top -o lmy/test/Run_Data/trial/test -maxwarn 100'
-    ## 'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3'
-    Worknodeinfo = {"state":"ALIVE","input":["zxz",],"output":"some files","idx":1,"link":["1->2",],
-                    "RunScript":'gmx mdrun -deffnm lmy/test/Run_Data/trial/test -v -c lmy/test/Run_Data/trial/test.gro -ntmpi 1 -ntomp 12 -gpu_id 3',
-                    "pid_in_CNode":0,"cwd":'/home','name':1}
-    Cnode = CompNode(Cnode)
-    Wnode = WorkInfo(Worknodeinfo)
-    launcher = Launcher(worknodeinfo=Wnode,compnode=Cnode)
-    ## test for cluster
-    workdict = {1: {"state": "ALIVE", "input": "some files", "output": "some files", "idx": 1, "link": ["1->2", ],
-                    "RunScript": 'echo hello_world'}
-        , 2: {"state": "ALIVE", "input": "some files", "output": "some files", "idx": 2, "link": ["1->2", ],
-              "RunScript": 'echo hello_world'}}
-    # s = json.dumps(workdict)
-    # print(s)
-    nlist = [
-        {'nodename': 'node1', 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527',
-         'pkey': None},
-        {'nodename': 'node2', 'username': 'shirui', 'hostname': 'tycs.nsccty.com', 'port': 65091, 'key': None,
-         'pkey': 'E:/downloads/work/HTCsys/public_key/tycs.nsccty.com_0113174144_rsa.txt'},
-    ]
-    m1 = Manager(workdict=workdict, CompNodesList=nlist,DataPadPath='E:\\downloads\\work\\HTCsys\\DataBase')
-    m1.LogginProp()
-    m1.ConnectNode('node1')
-    launcher.SetClient(m1.ConnectedClient['node1'])
-    #print(launcher.WorkNodeInfo)
-    ret = launcher.RunWorkNode(block=0)
-    print('cwd:',launcher.GetAbsPath())
-    print(launcher.GetRunStat())
-    launcher.STATE2RUNNING()
-    time.sleep(5)
-    launcher.KillRun()
-    launcher.RunningDetect()
-    print(launcher.stdout,ret)
 
