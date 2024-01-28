@@ -216,38 +216,4 @@ class WorkFlowDataBase():
         WorkFlowTo2DGraph(self.workflow,filename=filename+'.png',to_dir=to_dir,pos=pos)
         return repr(self.workflow)
 
-if __name__ == '__main__':
-
-    ## test for WorkNode
-    workinfo = {"state": "ALIVE", "input": ["ini.gro", "md.mdp", "topol.top"], "output": ["out.tpr"] , "idx": 1, "link": ["1->2", ], "RunScript": 'echo hello_world','name':1}
-    wn1 = WorkNode(workinfo=workinfo)
-    script = wn1.AddRunScript('gmx grompp -f $$input[1]$$ -c $$input[0]$$ -p $$input[2]$$ -o $$output[0]$$ -maxwarn 100')
-    #wn1.AddRunScript('gmx energy -f $$input[0]$$ -o $$input[0]$$ ')
-    #wn1.CleanRunScript()
-    #print(wn1.RunScript,'**')
-    workinfo =  {"state": "ALIVE", "input": ["run.py","ini.xml"], "output": [], "idx": 2,
-            "link": ["1->2",], 'name':2}
-    wn2 = WorkNode(workinfo=workinfo)
-    print(dir(wn2))
-    script = wn2.AddRunScript('hoomd $$input[0]$$ $$input[1]$$ --gpu=0',spec={'workdir':'/home/lmy'})
-    ## test for WorkFlow
-    wf = WorkFlow()
-    wf.InitializedFromNodeslist([wn1,wn2])
-    #print(wf.is_initialized())
-    for n in wf.WorkGraph.nodes:
-        n = wf.WorkGraph.nodes[n]['WorkNode']
-        print(n.RunScript,n.idx)
-    wn1.AddRunScript('echo fuck')
-    #print(wf.WorkGraph.nodes[wn1.idx]['WorkNode'].RunScript)
-    wfdb = WorkFlowDataBase(wf.WorkGraph)
-    wfdb.dump(to_dir='DataPad')
-    from ManSYS.Manager import Manager
-    Man = Manager(workdict=1)
-    Man.WorkFlowFromDataBase(wfdb)
-    wfdb2 = Man.WorkFlowToDataBase()
-    print(Man.WorkFlow.nodes[1]['WorkNode'].state)
-    from LaunchSYS.Launcher import Launcher
-    #l = Launcher(wn1,{'nodename':'node1','username':'shirui','hostname':'10.10.2.126','port':22,'key':'tony9527','pkey':None})
-    #l.STATEToRUNING()
-    #print(Man.WorkFlow.nodes[1]['WorkNode'].state)
 
