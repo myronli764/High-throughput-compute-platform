@@ -51,7 +51,7 @@ def ACF(input,ouput):
     f.close()
     return
 
-nodelist = [{'nodename': 'node1' , 'nodeidx': 0, 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527','pkey': None},]
+nodelist = []
 workdict = {}
 dirs = open('good_pi.txt','r').read().split(',')
 wid = 0
@@ -72,15 +72,12 @@ for i,d in enumerate(dirs[:1]):
 ##  analyzer
 for i,d in enumerate(dirs[:1]):
     for c in range(3):
-        workdict[wid] = {"state": "ALIVE", "input": ['/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py',f'{tem[c]}KAB.npy',f'{tem[c]}KAA.npy',f'{tem[c]}KBB.npy'],
+        workdict[wid] = {"state": "ALIVE", "input": ['ACF.py',f'{tem[c]}KAB.npy',f'{tem[c]}KAA.npy',f'{tem[c]}KBB.npy'],
                          "output": [],
                          "RunScript": ' sleep 15', 'name': f'{d}_{tem[c]}', "idx": wid, "link": [],
-                         'cwd':f'/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/{d}/Run_Data/Run'}
+                         'cwd':f'~'}
         wid +=1
 
-# python $$input[0]$$ $$input[1]$$ $$input[2]$$ $$input[3]$$
-# "input": ['/home1/shirui/PI/GAYchienLearning/aa_md_data/pi/ACF.py',f'{tem[c]}KAB.npy',f'{tem[c]}KAA.npy',f'{tem[c]}KBB.npy']
-#print(workdict)
 m = Manager(workdict=workdict,CompNodesList=nodelist,DataPadPath='E:/downloads/work/HTCsys/test/')
 m.JSONToWorkFlow()
 m.LogginProp()
