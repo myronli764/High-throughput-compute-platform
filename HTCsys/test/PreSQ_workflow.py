@@ -22,14 +22,7 @@ workdict = {
     }
 
 nodelist = [
-    {'nodename': 'node1' , 'nodeidx': 0, 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527','pkey': None},
-    #{'nodename': 'node2' , 'nodeidx': 1, 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527','pkey': None},
-    #{'nodename': 'node3' , 'nodeidx': 2, 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527','pkey': None},
-    #{'nodename': 'node4' , 'nodeidx': 3, 'username': 'shirui', 'hostname': '10.10.2.126', 'port': 22, 'key': 'tony9527','pkey': None},
-    #{'nodename': 'node5' , 'nodeidx': 4, 'username': 'shirui', 'hostname': '10.10.2.125', 'port': 22, 'key': 'tony9527','pkey': None},
-    #{'nodename': 'node6' , 'nodeidx': 5, 'username': 'shirui', 'hostname': '10.10.2.125', 'port': 22, 'key': 'tony9527','pkey': None},
-    #{'nodename': 'node5' , 'nodeidx': 6, 'username': 'shirui', 'hostname': '10.10.2.125', 'port': 22, 'key': 'tony9527','pkey': None},
-    #{'nodename': 'node6' , 'nodeidx': 7, 'username': 'shirui', 'hostname': '10.10.2.125', 'port': 22, 'key': 'tony9527','pkey': None},
+
     ]
 
 presqm = Manager(name='presq',workdict=workdict,CompNodesList=nodelist)
